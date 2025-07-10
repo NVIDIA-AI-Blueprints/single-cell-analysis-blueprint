@@ -1,4 +1,4 @@
-name: Jupyter Notebook Runner
+name: Jupyter Notebook Runner - Johnny Testing
 
 on:
   push:
@@ -12,9 +12,10 @@ concurrency:
 
 jobs:
   run-notebook:
-    runs-on: arc-runner-set-oke-org-nv-ai-bp
+    runs-on: ubuntu-latest
+    # runs-on: arc-runner-set-oke-org-nv-ai-bp
     env:
-      NOTEBOOK_PATH: ./launchable/1_Deploy_LLM_Router.ipynb
+      # NOTEBOOK_PATH: ./launchable/1_Deploy_LLM_Router.ipynb
       PYTHON_VERSION: 3.12
     steps:  
       - name: Checkout BP repository
