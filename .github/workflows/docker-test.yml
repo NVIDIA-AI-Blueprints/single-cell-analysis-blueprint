@@ -1,0 +1,26 @@
+name: Docker compose Demo
+
+on: [push]
+
+jobs:
+  test_in_docker_compose:
+    runs-on: ubuntu-latest  # 仍需基础 Runner 来启动 Docker
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Compose
+        run: |
+          docker compose version  # 验证 Docker Compose 可用性
+
+    #   - name: Start containers
+    #     run: |
+    #       docker compose -f .github/docker-compose.yml up -d
+
+    #   - name: Run tests
+    #     run: |
+    #       docker compose -f .github/docker-compose.yml exec app npm test
+
+    #   - name: Stop containers
+    #     if: always()  # 确保即使失败也清理容器
+    #     run: |
+    #       docker compose -f .github/docker-compose.yml down

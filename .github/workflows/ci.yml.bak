@@ -1,0 +1,97 @@
+name: Jupyter Notebook Runner
+
+on:
+  push:
+    branches:
+      - johnnynv-patch-dev
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run-notebook:
+    runs-on: arc-runner-set-oke-org-nv-ai-bp
+    env:
+      NOTEBOOK_PATH: ./launchable/1_Deploy_LLM_Router.ipynb
+      PYTHON_VERSION: 3.12
+    steps:  
+      - name: Checkout BP repository
+        uses: actions/checkout@v3
+     
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            **/*.ipynb
+            
+      - name: Install dependencies
+        env:
+          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install papermill
+          pip install ipywidgets
+          pip install torch
+          # Install wget
+          sudo apt-get update
+          sudo apt-get install wget
+          # Install Docker and Docker Compose in a single step
+          curl -fsSL https://get.docker.com -o get-docker.sh
+          sudo sh get-docker.sh
+          sudo apt-get update
+          sudo apt-get install -y docker-compose-plugin docker-compose build-essential
+          # Get System Info
+          echo "===================== System Info ====================="
+          more /etc/os-release
+          nvidia-smi
+          docker version
+          docker compose version
+          
+      - name: Run Jupyter Notebook
+        env:
+          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
+          NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
+        run: |
+          OUTPUT_NOTEBOOK="result.ipynb"
+          echo "Executing notebook: $NOTEBOOK_PATH"
+          papermill "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" --log-output --log-level DEBUG
+          
+      - name: Convert result to html format
+        if: always()
+        env:
+          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+        run: |
+          OUTPUT_NOTEBOOK="result.ipynb"
+          jupyter nbconvert --to html "$OUTPUT_NOTEBOOK"
+      - name: Checkout Test repository
+        uses: actions/checkout@v3
+        with:
+          repository: 'NVIDIA-AI-Blueprints/blueprint-github-test'
+          token: ${{ secrets.BLUEPRINT_GITHUB_TEST }}
+          path: blueprint-github-test2
+          
+      - name: Install Poetry/Dependencies and execute test
+        run: |
+          cd blueprint-github-test2
+          curl -sSL https://install.python-poetry.org | python3 -          
+          $HOME/.local/bin/poetry install
+          source $($HOME/.local/bin/poetry env info --path)/bin/activate
+          rm -rf input/*
+          cp ../result.html input/1_Deploy_LLM_Router.html
+          ls -l input/
+          pytest -m llm_router --disable-warnings
+                             
+      - name: Upload the result notebook as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-notebook
+          path: "result.html"
+          retention-days: 30
