@@ -65,13 +65,10 @@ jobs:
       - name: Env checking
         run: |
           ls -al /usr/bin | grep python
-          ls -al /usr/local/bin | grep python
-          ls -al /sbin | grep python
-          ls -al /bin | grep python
 
       - name: Workaround Code
         run: |
-          sudo ls -s /usr/bin/python /usr/bin/python3 
+          sudo ls -s /usr/bin/python3 /usr/bin/python 
           
       - name: Run Jupyter Notebook
         env:
@@ -79,6 +76,8 @@ jobs:
           NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
           NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
         run: |
+          python --version
+          python3 --version
           OUTPUT_NOTEBOOK="result.ipynb"
           echo "Executing notebook: $NOTEBOOK_PATH"
           papermill "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" --log-output --log-level DEBUG
