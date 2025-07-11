@@ -17,6 +17,11 @@ jobs:
     # runs-on: ubuntu-latest
     runs-on: arc-runner-set-oke-org-poc
     # runs-on: arc-runner-set-oke-org-nv-ai-bp
+    env:
+      # NOTEBOOK_PATH: ./launchable/1_Deploy_LLM_Router.ipynb
+      NOTEBOOK_PATH: ./notebooks/01_scRNA_analysis_preprocessing.ipynb
+      PYTHON_VERSION: 3.12
+    
     steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
       - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
@@ -108,6 +113,18 @@ jobs:
           fi
       - run: echo "🍏 This job's status is ${{ job.status }}."
 
+      # - name: Checkout BP repository
+      #   uses: actions/checkout@v4
+     
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            **/*.ipynb
+            
       - name: Install dependencies
         env:
           NGC_API_Key: ${{ secrets.NGC_API_KEY }}
