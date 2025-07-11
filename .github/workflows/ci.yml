@@ -62,33 +62,39 @@ jobs:
           docker version
           docker compose version
           
-      # - name: Run Jupyter Notebook
-      #   env:
-      #     NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-      #     NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
-      #     NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
-      #   run: |
-      #     OUTPUT_NOTEBOOK="result.ipynb"
-      #     echo "Executing notebook: $NOTEBOOK_PATH"
-      #     papermill "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" --log-output --log-level DEBUG
+      - name: Run Jupyter Notebook
+        env:
+          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
+          NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
+        run: |
+          OUTPUT_NOTEBOOK="result.ipynb"
+          echo "Executing notebook: $NOTEBOOK_PATH"
+          papermill "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" --log-output --log-level DEBUG
+          echo "===============show content of nb====================="
+          cat "$OUTPUT_NOTEBOOK"
+          echo "===============show content of nb====================="
           
-      # - name: Convert result to html format
-      #   if: always()
-      #   env:
-      #     NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-      #   run: |
-      #     OUTPUT_NOTEBOOK="result.ipynb"
-      #     jupyter nbconvert --to html "$OUTPUT_NOTEBOOK"
+      - name: Convert result to html format
+        if: always()
+        env:
+          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+        run: |
+          OUTPUT_NOTEBOOK="result.ipynb"
+          jupyter nbconvert --to html "$OUTPUT_NOTEBOOK"
+          echo "===============show content of nb html====================="
+          cat ./result.html
+          echo "===============show content of nb html====================="
       # - name: Checkout Test repository
-      #   uses: actions/checkout@v3
+      #   uses: actions/checkout@v4
       #   with:
       #     repository: 'NVIDIA-AI-Blueprints/blueprint-github-test'
       #     token: ${{ secrets.BLUEPRINT_GITHUB_TEST }}
-      #     path: blueprint-github-test2
+      #     path: blueprint-github-test-tmp
           
       # - name: Install Poetry/Dependencies and execute test
       #   run: |
-      #     cd blueprint-github-test2
+      #     cd blueprint-github-test-tmp
       #     curl -sSL https://install.python-poetry.org | python3 -          
       #     $HOME/.local/bin/poetry install
       #     source $($HOME/.local/bin/poetry env info --path)/bin/activate
