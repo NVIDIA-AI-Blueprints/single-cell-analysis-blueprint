@@ -149,11 +149,16 @@ jobs:
           docker version
           docker compose version
 
+      - name: Pull large image first
+        run: |
+          export COMPOSE_HTTP_TIMEOUT=600
+          docker pull nvcr.io/nvidia/rapidsai/notebooks:25.06-cuda12.8-py3.12
+
       - name: Start containers
         run: docker-compose -f ./docker/brev/docker-compose-nb-2506.yaml up -d
 
       - name: Check running containers
-        run: docker ps
+        run: docker ps -a
 
       # - name: Test service
       #   run: |
