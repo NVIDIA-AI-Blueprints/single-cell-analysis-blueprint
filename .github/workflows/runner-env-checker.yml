@@ -1,10 +1,11 @@
-name: GitHub Actions Demo
+name: Runner Env Checking
 run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
 on: [push]
 jobs:
   Explore-GitHub-Actions:
     # runs-on: ubuntu-latest
-    runs-on: arc-runner-set-oke-org-nv-ai-bp
+    runs-on: arc-runner-set-oke-org-poc
+    # runs-on: arc-runner-set-oke-org-nv-ai-bp
     steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
       - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
@@ -16,10 +17,16 @@ jobs:
       - name: List files in the repository
         run: |
           ls ${{ github.workspace }}
+
+      - name: Install software
+        run: |
+          sudo apt update && sudo apt install -y pciutils
+      
       - name: Check System Info
         run: |
           echo "=== OS Info ==="
           uname -a  # Linux/macOS
+          cat /etc/os-release
           
           echo "=== CPU Info ==="
           lscpu || sysctl -n machdep.cpu.brand_string  # Linux | macOS
@@ -32,18 +39,18 @@ jobs:
       - name: Check GPU Info
         run: |
           echo "===== 1. Check PCI Devices (GPU) ====="
-          sudo lspci | grep -i vga  # 列出所有显卡设备
+          sudo lspci | grep -i vga
           
           echo "===== 2. Check NVIDIA GPU (if exists) ====="
           if command -v nvidia-smi &> /dev/null; then
-            nvidia-smi  # 显示 NVIDIA GPU 状态和驱动版本
+            nvidia-smi
           else
             echo "NVIDIA GPU not detected or drivers not installed."
           fi
 
           echo "===== 3. Check OpenCL/ROCm (AMD/Intel) ====="
           if command -v clinfo &> /dev/null; then
-            clinfo | grep -i "device name"  # 检查 OpenCL 设备
+            clinfo | grep -i "device name"
           else
             echo "OpenCL/ROCm not available."
           fi

@@ -12,7 +12,8 @@ concurrency:
 
 jobs:
   run-notebook:
-    runs-on: ubuntu-latest
+    # runs-on: ubuntu-latest
+    runs-on: arc-runner-set-oke-org-poc
     # runs-on: arc-runner-set-oke-org-nv-ai-bp
     env:
       # NOTEBOOK_PATH: ./launchable/1_Deploy_LLM_Router.ipynb
