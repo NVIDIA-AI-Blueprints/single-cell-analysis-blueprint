@@ -4,6 +4,7 @@ on: [push]
 jobs:
   Explore-GitHub-Actions:
     runs-on: ubuntu-latest
+    # runs-on: arc-runner-set-oke-org-nv-ai-bp
     steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
       - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
@@ -15,4 +16,63 @@ jobs:
       - name: List files in the repository
         run: |
           ls ${{ github.workspace }}
+      - name: Check GPU Info
+        run: |
+          echo "===== 1. Check PCI Devices (GPU) ====="
+          sudo lspci | grep -i vga  # 列出所有显卡设备
+          
+          echo "===== 2. Check NVIDIA GPU (if exists) ====="
+          if command -v nvidia-smi &> /dev/null; then
+            nvidia-smi  # 显示 NVIDIA GPU 状态和驱动版本
+          else
+            echo "NVIDIA GPU not detected or drivers not installed."
+          fi
+
+          echo "===== 3. Check OpenCL/ROCm (AMD/Intel) ====="
+          if command -v clinfo &> /dev/null; then
+            clinfo | grep -i "device name"  # 检查 OpenCL 设备
+          else
+            echo "OpenCL/ROCm not available."
+          fi
+
+      - name: Check CUDA/cuDNN
+        run: |
+          echo "===== CUDA Version ====="
+          if command -v nvcc &> /dev/null; then
+            nvcc --version
+          else
+            echo "CUDA not installed."
+          fi
+
+          echo "===== cuDNN Version ====="
+          if [ -f /usr/local/cuda/include/cudnn_version.h ]; then
+            grep -E "define CUDNN_MAJOR|define CUDNN_MINOR|define CUDNN_PATCHLEVEL" /usr/local/cuda/include/cudnn_version.h
+          else
+            echo "cuDNN not found."
+          fi
+
+      - name: Check Vulkan
+        run: |
+          echo "===== Vulkan Info ====="
+          if command -v vulkaninfo &> /dev/null; then
+            vulkaninfo --summary | grep "GPU id"
+          else
+            echo "Vulkan not installed."
+          fi
+
+      - name: Check OpenCL/ROCm
+        run: |
+          echo "===== OpenCL Devices ====="
+          if command -v clinfo &> /dev/null; then
+            clinfo | grep -A 5 "Device Name"
+          else
+            echo "OpenCL not installed."
+          fi
+
+          echo "===== ROCm (AMD GPU) ====="
+          if [ -f /opt/rocm/bin/rocminfo ]; then
+            /opt/rocm/bin/rocminfo | grep "gfx"
+          else
+            echo "ROCm not installed."
+          fi
       - run: echo "🍏 This job's status is ${{ job.status }}."
