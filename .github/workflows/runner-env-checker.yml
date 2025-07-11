@@ -150,7 +150,7 @@ jobs:
           docker compose version
 
       - name: Start containers
-        run: docker-compose -f ./docker/brev/docker-compose-nb-2506.yaml
+        run: docker-compose -f ./docker/brev/docker-compose-nb-2506.yaml up -d
 
       - name: Check running containers
         run: docker ps
