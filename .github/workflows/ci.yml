@@ -1,10 +1,16 @@
-name: Jupyter Notebook Runner - Johnny Testing
+name: ipynb Runner - Johnny Testing
+run-name: ${{ github.actor }} is running ipynb tester
 
 on:
   push:
     branches:
       - johnnynv-patch-dev
   workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy Environment'
+        required: true
+        default: 'staging'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -17,6 +23,7 @@ jobs:
     # runs-on: arc-runner-set-oke-org-nv-ai-bp
     env:
       # NOTEBOOK_PATH: ./launchable/1_Deploy_LLM_Router.ipynb
+      NOTEBOOK_PATH: ./notebooks/01_scRNA_analysis_preprocessing.ipynb
       PYTHON_VERSION: 3.12
     steps:  
       - name: Checkout BP repository
