@@ -77,7 +77,12 @@ jobs:
           NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
         run: |
           python --version
-          python3 --version
+          python3 --versio
+
+          pip install ipykernel
+          python -m ipykernel install --user --name python3 --display-name "python3"
+          jupyter kernelspec list
+
           OUTPUT_NOTEBOOK="result.ipynb"
           echo "Executing notebook: $NOTEBOOK_PATH"
           papermill "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" --log-output --log-level DEBUG
