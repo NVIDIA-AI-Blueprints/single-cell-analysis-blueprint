@@ -61,6 +61,17 @@ jobs:
           nvidia-smi
           docker version
           docker compose version
+
+      - name: Env checking
+        run: |
+          ls -al /usr/bin | grep python
+          ls -al /usr/local/bin | grep python
+          ls -al /sbin | grep python
+          ls -al /bin | grep python
+
+      - name: Workaround Code
+        run: |
+          sudo ls -s /usr/bin/python /usr/bin/python3 
           
       - name: Run Jupyter Notebook
         env:
