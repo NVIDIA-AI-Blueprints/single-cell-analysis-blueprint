@@ -107,3 +107,43 @@ jobs:
             echo "ROCm not installed."
           fi
       - run: echo "🍏 This job's status is ${{ job.status }}."
+
+      - name: Install dependencies
+        env:
+          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install papermill
+          pip install ipywidgets
+          pip install torch
+          # Install wget
+          sudo apt-get update
+          sudo apt-get install wget
+          # Install Docker and Docker Compose in a single step
+          curl -fsSL https://get.docker.com -o get-docker.sh
+          sudo sh get-docker.sh
+          sudo apt-get update
+          sudo apt-get install -y docker-compose-plugin docker-compose build-essential
+          # Get System Info
+          echo "===================== System Info ====================="
+          more /etc/os-release
+          nvidia-smi
+          docker version
+          docker compose version
+
+      - name: Start containers
+        run: docker-compose -f ./docker/brev/docker-compose-nb-2506.yaml
+
+      - name: Check running containers
+        run: docker ps
+
+      # - name: Test service
+      #   run: |
+      #     curl -sSf http://localhost:8080
+      #     docker-compose exec -T service_name pytest /tests
+
+      - name: Stop containers
+        if: ${{ always() }}
+        run: docker-compose -f docker-compose.yml down
+      

@@ -68,7 +68,7 @@ jobs:
 
       - name: Workaround Code
         run: |
-          sudo ls -s /usr/bin/python3 /usr/bin/python 
+          sudo ln -s /usr/bin/python3 /usr/bin/python 
           
       - name: Run Jupyter Notebook
         env:
@@ -95,6 +95,7 @@ jobs:
           echo "===============show content of nb html====================="
           cat ./result.html
           echo "===============show content of nb html====================="
+
       # - name: Checkout Test repository
       #   uses: actions/checkout@v4
       #   with:
