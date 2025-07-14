@@ -82,7 +82,6 @@ jobs:
           docker version
           docker compose version
 
-
       - name: Cache Docker image
         id: cache-docker-image
         uses: actions/cache@v3
@@ -113,7 +112,7 @@ jobs:
           
           end_time=$(date +%s)
           echo "Execution time: $((end_time - start_time)) seconds"
-        timeout-minutes: 15
+        timeout-minutes: 20
 
       - name: Start container
         run: |
