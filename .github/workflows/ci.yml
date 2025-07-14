@@ -83,12 +83,11 @@ jobs:
 
       - name: Pull large image first
         run: |
-          echo "Docker image will use: $DOCKER_COMPOSE_FILE"
-          # export COMPOSE_HTTP_TIMEOUT=600
-          docker pull "DOCKER_IMG_NAME" || (
+          echo "Docker image will use: $DOCKER_IMG_NAME"
+          docker pull "$DOCKER_IMG_NAME" || (
             echo "Pull failed, retrying..." 
             sleep 30
-            docker pull --quiet "DOCKER_IMG_NAME"
+            docker pull --quiet "$DOCKER_IMG_NAME"
           )
         timeout-minutes: 15
 
