@@ -1,5 +1,5 @@
 name: Runner Env Checking
-run-name: ${{ github.actor }} is running Runner Env Checker
+run-name: ${{ github.actor }} is running Draft Runner
 
 on:
   push:
@@ -41,6 +41,31 @@ jobs:
           python-version: '3.12'
           check-disk: 'false'
 
+      - name: Install dependencies
+        env:
+          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install papermill
+          pip install ipywidgets
+          pip install torch
+          # Install wget
+          sudo apt-get update
+          sudo apt-get install wget
+          # Install Docker and Docker Compose in a single step
+          curl -fsSL https://get.docker.com -o get-docker.sh
+          sudo sh get-docker.sh
+          sudo apt-get update
+          sudo apt-get install -y docker-compose-plugin docker-compose build-essential
+          # Get System Info
+          echo "===================== System Info ====================="
+          more /etc/os-release
+          nvidia-smi
+          docker version
+          docker compose version
+        shell: bash
+
       - name: Pull large image first
         run: |
           export COMPOSE_HTTP_TIMEOUT=600
@@ -55,8 +80,8 @@ jobs:
         if: ${{ failure() }}
         run: |
           docker ps -a
-          docker system df
-          docker stats
+          # docker system df
+          # docker stats
           docker logs brev_backend_1
 
       - name: Check running containers

@@ -22,7 +22,6 @@ runs:
         cache-dependency-path: |
           requirements.txt
           **/*.ipynb
-      shell: bash
 
     - name: Check Disk
       if: ${{ inputs.check-disk == 'true' }}
@@ -34,27 +33,3 @@ runs:
         echo "Python: $(python --version || echo 'Not installed')"
       shell: bash
     
-    - name: Install dependencies
-      env:
-        NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install papermill
-        pip install ipywidgets
-        pip install torch
-        # Install wget
-        sudo apt-get update
-        sudo apt-get install wget
-        # Install Docker and Docker Compose in a single step
-        curl -fsSL https://get.docker.com -o get-docker.sh
-        sudo sh get-docker.sh
-        sudo apt-get update
-        sudo apt-get install -y docker-compose-plugin docker-compose build-essential
-        # Get System Info
-        echo "===================== System Info ====================="
-        more /etc/os-release
-        nvidia-smi
-        docker version
-        docker compose version
-      shell: bash
