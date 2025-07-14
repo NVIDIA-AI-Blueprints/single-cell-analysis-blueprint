@@ -33,7 +33,7 @@ jobs:
           echo "repo path is: ${{ github.workspace }}"
           ls -la "${{ github.workspace }}"
       
-      - name: Debug info
+      - name: Debug Info
         run: |
           echo "=============Debug Info======================"
           pwd
@@ -105,13 +105,15 @@ jobs:
       - name: Check running containers
         run: docker ps -a
 
-      - name: Test CMDs in container
+      - name: Debug Info
         run: |
+          echo "=============Debug Info======================"
           docker-compose -f "$DOCKER_COMPOSE_FILE" config --services
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al .
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend sudo apt update -y && sudo apt install -y tree
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend apt update -y && apt install -y tree
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend tree .
+          echo "=============Debug Info======================"
 
       - name: Stop containers
         if: ${{ always() }}
