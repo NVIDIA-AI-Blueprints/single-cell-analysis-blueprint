@@ -83,16 +83,20 @@ jobs:
 
       - name: Pull large image first
         run: |
+          start_time=$(date +%s)
           echo "Docker image will use: $DOCKER_IMG_NAME"
           docker pull "$DOCKER_IMG_NAME" || (
             echo "Pull failed, retrying..." 
             sleep 30
             docker pull --quiet "$DOCKER_IMG_NAME"
           )
+          end_time=$(date +%s)
+          echo "Execution time: $((end_time - start_time)) seconds"
         timeout-minutes: 15
 
       - name: Start container
         run: |
+          start_time=$(date +%s)
           docker images -a
           echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
           
@@ -100,6 +104,9 @@ jobs:
           export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
 
           docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d --wait
+          
+          end_time=$(date +%s)
+          echo "Execution time: $((end_time - start_time)) seconds"
 
       - name: Debug container logs
         if: ${{ failure() }}
@@ -131,7 +138,7 @@ jobs:
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python --version
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
 
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install ipykernel
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install ipykernel papermill
           # docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m ipykernel install --user --name python3 --display-name "python3"
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter kernelspec list
 
