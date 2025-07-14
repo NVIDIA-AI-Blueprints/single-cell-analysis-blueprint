@@ -20,6 +20,7 @@ jobs:
     env:
       # NOTEBOOK_PATH: ./launchable/1_Deploy_LLM_Router.ipynb
       NOTEBOOK_PATH: ./notebooks/01_scRNA_analysis_preprocessing.ipynb
+      DOCKER_COMPOSE_FILE: ./docker/brev/docker-compose-nb-2506.yaml 
       PYTHON_VERSION: 3.12
 
     steps:
@@ -74,7 +75,7 @@ jobs:
       - name: Start container
         run: |
           export COMPOSE_HTTP_TIMEOUT=600
-          docker-compose -f ./docker/brev/docker-compose-nb-2506.yaml up -d --verbose
+          docker-compose -f "$DOCKER_COMPOSE_FILE" up -d --verbose
 
       - name: Debug container logs
         if: ${{ failure() }}
@@ -94,5 +95,5 @@ jobs:
 
       - name: Stop containers
         if: ${{ always() }}
-        run: docker-compose -f docker-compose.yml down
+        run: docker-compose -f "$DOCKER_COMPOSE_FILE" down
       
