@@ -22,7 +22,7 @@ services:
       - "0.0.0.0:8787:8787"      # Dask dashboard
       - "0.0.0.0:8786:8786"      # Dask scheduler
     volumes:
-      - /home/ubuntu/single-cell-analysis-blueprint:/notebooks/
+      - ${NOTEBOOKS_HOST_PATH:-/home/ubuntu/single-cell-analysis-blueprint}:/notebooks  
     user: root
     working_dir: /notebooks
     entrypoint: ["/home/rapids/entrypoint.sh"]

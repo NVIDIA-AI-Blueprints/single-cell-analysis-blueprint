@@ -28,6 +28,10 @@ jobs:
     steps:  
       - name: Checkout BP repository
         uses: actions/checkout@v4
+        
+      - run: |
+          echo "repo path is: ${{ github.workspace }}"
+          ls -la "${{ github.workspace }}"
       
       - name: Debug info
         run: |
@@ -83,9 +87,11 @@ jobs:
 
       - name: Start container
         run: |
-          export COMPOSE_HTTP_TIMEOUT=300
           docker images -a
           echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
+          
+          export COMPOSE_HTTP_TIMEOUT=300
+          export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
           docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d
 
       - name: Debug container logs
