@@ -24,7 +24,7 @@ jobs:
     env:
       DOCKER_IMG_NAME: "nvcr.io/nvidia/rapidsai/notebooks:25.06-cuda12.8-py3.12"
       DOCKER_IMG_CACHE_NAME: "rapidsai_notebooks_25.06-cuda12.8-py3.12"
-      DOCKER_COMPOSE_FILE: "./docker/brev/docker-compose-nb-2504.yaml"
+      DOCKER_COMPOSE_FILE: "$GITHUB_WORKSPACE/docker/brev/docker-compose-nb-2504.yaml"
       NOTEBOOK_PATH: "./notebooks/01_scRNA_analysis_preprocessing.ipynb"
       PYTHON_VERSION: "3.12"
     steps:  
@@ -62,11 +62,12 @@ jobs:
         env:
           NGC_API_Key: ${{ secrets.NGC_API_KEY }}
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install papermill
-          pip install ipywidgets
-          pip install torch
+          # python -m pip install --upgrade pip
+          # pip install -r requirements.txt
+          # pip install papermill
+          # pip install ipywidgets
+          # pip install torch
+
           # Install wget
           sudo apt-get update
           sudo apt-get install wget
@@ -89,11 +90,6 @@ jobs:
           path: /tmp/docker-pull-cache
           key: ${{ runner.os }}-docker-${{ hashFiles('$DOCKER_COMPOSE_FILE') }}
 
-      - name: Check cache size
-        run: |
-          du -sh /tmp/docker-pull-cache
-          echo "Cache Key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}"
-
       - name: Load docker image from cache or Pull it
         run: |
           start_time=$(date +%s)
@@ -113,6 +109,11 @@ jobs:
           end_time=$(date +%s)
           echo "Execution time: $((end_time - start_time)) seconds"
         timeout-minutes: 20
+
+      - name: Check cache size
+        run: |
+          du -sh /tmp/docker-pull-cache
+          echo "Cache Key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}"
 
       - name: Start container
         run: |
@@ -164,7 +165,10 @@ jobs:
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python --version
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
 
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m pip install --upgrade pip
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install -r requirements.txt
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install -r papermill ipywidgets torch
+
           # docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m ipykernel install --user --name python3 --display-name "python3"
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter kernelspec list
 
