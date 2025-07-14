@@ -22,10 +22,10 @@ jobs:
     runs-on: arc-runner-set-oke-org-poc
     # runs-on: arc-runner-set-oke-org-nv-ai-bp
     env:
-      DOCKER_IMG_NAME: nvcr.io/nvidia/rapidsai/notebooks:25.06-cuda12.8-py3.12
-      DOCKER_COMPOSE_FILE: ./docker/brev/docker-compose-nb-2504.yaml 
-      NOTEBOOK_PATH: ./notebooks/01_scRNA_analysis_preprocessing.ipynb
-      PYTHON_VERSION: 3.12
+      DOCKER_IMG_NAME: "nvcr.io/nvidia/rapidsai/notebooks:25.06-cuda12.8-py3.12"
+      DOCKER_COMPOSE_FILE: "./docker/brev/docker-compose-nb-2504.yaml"
+      NOTEBOOK_PATH: "./notebooks/01_scRNA_analysis_preprocessing.ipynb"
+      PYTHON_VERSION: "3.12"
     steps:  
       - name: Checkout BP repository
         uses: actions/checkout@v4
@@ -83,6 +83,7 @@ jobs:
 
       - name: Pull large image first
         run: |
+          echo "Docker image will use: $DOCKER_COMPOSE_FILE"
           # export COMPOSE_HTTP_TIMEOUT=600
           docker pull "DOCKER_IMG_NAME" || (
             echo "Pull failed, retrying..." 
