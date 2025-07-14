@@ -23,7 +23,6 @@ jobs:
     # runs-on: arc-runner-set-oke-org-nv-ai-bp
     env:
       DOCKER_IMG_NAME: "nvcr.io/nvidia/rapidsai/notebooks:25.06-cuda12.8-py3.12"
-      DOCKER_IMG_CACHE_NAME: "rapidsai_notebooks_25.06-cuda12.8-py3.12"
       DOCKER_COMPOSE_FILE: "$GITHUB_WORKSPACE/docker/brev/docker-compose-nb-2504.yaml"
       NOTEBOOK_PATH: "./notebooks/01_scRNA_analysis_preprocessing.ipynb"
       PYTHON_VERSION: "3.12"
@@ -87,33 +86,50 @@ jobs:
         id: cache-docker-image
         uses: actions/cache@v3
         with:
-          path: /tmp/docker-pull-cache
-          key: ${{ runner.os }}-docker-${{ hashFiles('$DOCKER_COMPOSE_FILE') }}
+          path: /tmp
+          key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}
 
       - name: Load docker image from cache or Pull it
         run: |
           start_time=$(date +%s)
           echo "Docker image will use: $DOCKER_IMG_NAME"
 
-          if [ -f "/tmp/docker-pull-cache/$DOCKER_IMG_CACHE_NAME.tar" ]; then
-            docker load -i /tmp/docker-pull-cache/$DOCKER_IMG_CACHE_NAME.tar
+          DOCKER_IMG_CACHE_NAME=$(echo "$DOCKER_IMG_NAME" | sed 's/[\/:@.]/_/g')
+          echo "DOCKER_IMG_CACHE_NAME=${DOCKER_IMG_CACHE_NAME}" >> $GITHUB_ENV
+          echo "Cache filename: ${{ env.DOCKER_IMG_CACHE_NAME }}.tar"
+
+
+          if [ -f "/tmp/${{ env.DOCKER_IMG_CACHE_NAME }}.tar" ]; then
+            docker load -i /tmp/${{ env.DOCKER_IMG_CACHE_NAME }}.tar
           else
-            docker pull "$DOCKER_IMG_NAME" || (
+            if ! docker pull "$DOCKER_IMG_NAME"; then
               echo "Pull failed, retrying..." 
               sleep 30
-              docker pull --quiet "$DOCKER_IMG_NAME"
-            )
-            mkdir -p /tmp/docker-pull-cache
-            docker save $DOCKER_IMG_NAME > /tmp/docker-pull-cache/$DOCKER_IMG_CACHE_NAME.tar
+              docker pull --quiet "$DOCKER_IMG_NAME" || {
+                echo "Error: Docker pull failed after retry"
+                exit 1
+              }
+            fi
+            mkdir -p /tmp
+            docker save $DOCKER_IMG_NAME > /tmp/${{ env.DOCKER_IMG_CACHE_NAME }}.tar
+          fi
           
           end_time=$(date +%s)
           echo "Execution time: $((end_time - start_time)) seconds"
         timeout-minutes: 20
 
-      - name: Check cache size
+      - name: Update cache if needed
+        if: always()
+        uses: actions/cache@v3
+        with:
+          path: /tmp
+          key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}
+
+      - name: Verify cache
         run: |
-          du -sh /tmp/docker-pull-cache
+          du -sh /tmp
           echo "Cache Key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}"
+          echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit }}"
 
       - name: Start container
         run: |
