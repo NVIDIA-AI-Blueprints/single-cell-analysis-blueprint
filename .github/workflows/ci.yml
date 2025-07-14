@@ -111,44 +111,43 @@ jobs:
           docker-compose -f "$DOCKER_COMPOSE_FILE" config --services
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al .
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend apt update -y && apt install -y tree
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend tree .
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend find . -maxdepth 3 | sed -e 's|[^/]*/|- |g' -e 's|^\./||'
           echo "=============Debug Info======================"
 
       - name: Stop containers
         if: ${{ always() }}
         run: docker-compose -f "$DOCKER_COMPOSE_FILE" down
           
-      # - name: Run Jupyter Notebook
-      #   env:
-      #     NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-      #     NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
-      #     NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
-      #   run: |
-      #     python --version
-      #     python3 --version
+      - name: Run Jupyter Notebook
+        env:
+          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
+          NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
+        run: |
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python --version
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
 
-      #     pip install ipykernel
-      #     python -m ipykernel install --user --name python3 --display-name "python3"
-      #     jupyter kernelspec list
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install ipykernel
+          # docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m ipykernel install --user --name python3 --display-name "python3"
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter kernelspec list
 
-      #     OUTPUT_NOTEBOOK="result.ipynb"
-      #     echo "Executing notebook: $NOTEBOOK_PATH"
-      #     papermill "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" --log-output --log-level DEBUG
-      #     echo "===============show content of nb====================="
-      #     cat "$OUTPUT_NOTEBOOK"
-      #     echo "===============show content of nb====================="
+          OUTPUT_NOTEBOOK="result.ipynb"
+          echo "Executing notebook: $NOTEBOOK_PATH"
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend papermill "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" --log-output --log-level DEBUG
+          echo "===============show content of nb====================="
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "$OUTPUT_NOTEBOOK"
+          echo "===============show content of nb====================="
           
-      # - name: Convert result to html format
-      #   if: always()
-      #   env:
-      #     NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-      #   run: |
-      #     OUTPUT_NOTEBOOK="result.ipynb"
-      #     jupyter nbconvert --to html "$OUTPUT_NOTEBOOK"
-      #     echo "===============show content of nb html====================="
-      #     cat ./result.html
-      #     echo "===============show content of nb html====================="
+      - name: Convert result to html format
+        if: always()
+        env:
+          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+        run: |
+          OUTPUT_NOTEBOOK="result.ipynb"
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK"
+          echo "===============show content of nb html====================="
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat ./result.html
+          echo "===============show content of nb html====================="
 
       # - name: Checkout Test repository
       #   uses: actions/checkout@v4
