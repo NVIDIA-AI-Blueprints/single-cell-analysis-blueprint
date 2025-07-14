@@ -24,6 +24,7 @@ jobs:
     env:
       DOCKER_IMG_NAME: "nvcr.io/nvidia/rapidsai/notebooks:25.06-cuda12.8-py3.12"
       DOCKER_COMPOSE_FILE: "${{ github.workspace }}/docker/brev/docker-compose-nb-2504.yaml"
+      DOCKER_CACHE_PATH: "/tmp/docker-pull-cache"
       NOTEBOOK_PATH: "./notebooks/01_scRNA_analysis_preprocessing.ipynb"
       PYTHON_VERSION: "3.12"
     steps:  
@@ -86,8 +87,16 @@ jobs:
         id: cache-docker-image
         uses: actions/cache@v3
         with:
-          path: /tmp
+          path: ${{ env.DOCKER_CACHE_PATH }}
           key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}
+      
+      - name: Ensure cache directory exists
+        run: mkdir -p {{ env.DOCKER_CACHE_PATH }}
+
+      - name: Debug cache key
+        run: |
+          echo "Primary Key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}"
+          echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit }}"
 
       - name: Load docker image from cache or Pull it
         run: |
@@ -99,8 +108,8 @@ jobs:
           echo "Cache filename: ${{ env.DOCKER_IMG_CACHE_NAME }}.tar"
 
 
-          if [ -f "/tmp/${{ env.DOCKER_IMG_CACHE_NAME }}.tar" ]; then
-            docker load -i /tmp/${{ env.DOCKER_IMG_CACHE_NAME }}.tar
+          if [ -f "${{ env.DOCKER_CACHE_PATH }}/${{ env.DOCKER_IMG_CACHE_NAME }}.tar" ]; then
+            docker load -i ${{ env.DOCKER_CACHE_PATH }}/${{ env.DOCKER_IMG_CACHE_NAME }}.tar
           else
             if ! docker pull "$DOCKER_IMG_NAME"; then
               echo "Pull failed, retrying..." 
@@ -111,7 +120,7 @@ jobs:
               }
             fi
             mkdir -p /tmp
-            docker save $DOCKER_IMG_NAME > /tmp/${{ env.DOCKER_IMG_CACHE_NAME }}.tar
+            docker save $DOCKER_IMG_NAME > ${{ env.DOCKER_CACHE_PATH }}/${{ env.DOCKER_IMG_CACHE_NAME }}.tar
           fi
           
           end_time=$(date +%s)
