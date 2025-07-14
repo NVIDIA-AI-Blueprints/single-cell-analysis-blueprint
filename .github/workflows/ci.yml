@@ -127,6 +127,12 @@ jobs:
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al .
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend find . -maxdepth 2 | sed -e 's|[^/]*/|- |g' -e 's|^\./||'
+
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat /home/rapids/entrypoint.sh
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip list
+
           echo "=============Debug Info======================"
 
       - name: Run Jupyter Notebook
@@ -138,7 +144,7 @@ jobs:
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python --version
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
 
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install ipykernel papermill
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install ipykernel papermill scanpy
           # docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m ipykernel install --user --name python3 --display-name "python3"
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter kernelspec list
 
