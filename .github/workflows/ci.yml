@@ -28,6 +28,13 @@ jobs:
     steps:  
       - name: Checkout BP repository
         uses: actions/checkout@v4
+      
+      - name: Debug info
+        uses: |
+          echo "=============Debug Info======================"
+          pwd
+          ls -al .
+          echo "=============Debug Info======================"
      
       - uses: ./.github/actions/check-sysinfo
 
@@ -97,6 +104,7 @@ jobs:
           docker-compose -f "$DOCKER_COMPOSE_FILE" config --services
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al .
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend sudo apt update -y && sudo apt install -y tree
           docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend tree .
 
       - name: Stop containers
