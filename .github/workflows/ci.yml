@@ -95,9 +95,9 @@ jobs:
       - name: Test CMDs in container
         run: |
           docker-compose -f "$DOCKER_COMPOSE_FILE" config --services
-          docker-compose exec -T backend pwd
-          docker-compose exec -T backend ls -al .
-          docker-compose exec -T backend tree .
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al .
+          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend tree .
 
       - name: Stop containers
         if: ${{ always() }}
