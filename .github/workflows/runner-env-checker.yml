@@ -21,7 +21,7 @@ jobs:
       # NOTEBOOK_PATH: ./launchable/1_Deploy_LLM_Router.ipynb
       NOTEBOOK_PATH: ./notebooks/01_scRNA_analysis_preprocessing.ipynb
       PYTHON_VERSION: 3.12
-    
+
     steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
       - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
@@ -34,128 +34,30 @@ jobs:
         run: |
           ls ${{ github.workspace }}
 
-      - name: Install software
-        run: |
-          sudo apt update && sudo apt install -y pciutils
-      
-      - name: Check System Info
-        run: |
-          echo "=== OS Info ==="
-          uname -a  # Linux/macOS
-          cat /etc/os-release
-          
-          echo "=== CPU Info ==="
-          lscpu || sysctl -n machdep.cpu.brand_string  # Linux | macOS
-          
-          echo "=== Memory Info ==="
-          free -h || vm_stat  # Linux | macOS
-          
-          echo "=== Disk Space ==="
-          df -h  # Linux/macOS
-      - name: Check GPU Info
-        run: |
-          echo "===== 1. Check PCI Devices (GPU) ====="
-          sudo lspci | grep -i vga
-          
-          echo "===== 2. Check NVIDIA GPU (if exists) ====="
-          if command -v nvidia-smi &> /dev/null; then
-            nvidia-smi
-          else
-            echo "NVIDIA GPU not detected or drivers not installed."
-          fi
+      - uses: ./.github/actions/check-sysinfo
 
-          echo "===== 3. Check OpenCL/ROCm (AMD/Intel) ====="
-          if command -v clinfo &> /dev/null; then
-            clinfo | grep -i "device name"
-          else
-            echo "OpenCL/ROCm not available."
-          fi
-
-      - name: Check CUDA/cuDNN
-        run: |
-          echo "===== CUDA Version ====="
-          if command -v nvcc &> /dev/null; then
-            nvcc --version
-          else
-            echo "CUDA not installed."
-          fi
-
-          echo "===== cuDNN Version ====="
-          if [ -f /usr/local/cuda/include/cudnn_version.h ]; then
-            grep -E "define CUDNN_MAJOR|define CUDNN_MINOR|define CUDNN_PATCHLEVEL" /usr/local/cuda/include/cudnn_version.h
-          else
-            echo "cuDNN not found."
-          fi
-
-      - name: Check Vulkan
-        run: |
-          echo "===== Vulkan Info ====="
-          if command -v vulkaninfo &> /dev/null; then
-            vulkaninfo --summary | grep "GPU id"
-          else
-            echo "Vulkan not installed."
-          fi
-
-      - name: Check OpenCL/ROCm
-        run: |
-          echo "===== OpenCL Devices ====="
-          if command -v clinfo &> /dev/null; then
-            clinfo | grep -A 5 "Device Name"
-          else
-            echo "OpenCL not installed."
-          fi
-
-          echo "===== ROCm (AMD GPU) ====="
-          if [ -f /opt/rocm/bin/rocminfo ]; then
-            /opt/rocm/bin/rocminfo | grep "gfx"
-          else
-            echo "ROCm not installed."
-          fi
-      - run: echo "🍏 This job's status is ${{ job.status }}."
-
-      # - name: Checkout BP repository
-      #   uses: actions/checkout@v4
-     
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: ./.github/actions/setup-env
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-          cache-dependency-path: |
-            requirements.txt
-            **/*.ipynb
-            
-      - name: Install dependencies
-        env:
-          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install papermill
-          pip install ipywidgets
-          pip install torch
-          # Install wget
-          sudo apt-get update
-          sudo apt-get install wget
-          # Install Docker and Docker Compose in a single step
-          curl -fsSL https://get.docker.com -o get-docker.sh
-          sudo sh get-docker.sh
-          sudo apt-get update
-          sudo apt-get install -y docker-compose-plugin docker-compose build-essential
-          # Get System Info
-          echo "===================== System Info ====================="
-          more /etc/os-release
-          nvidia-smi
-          docker version
-          docker compose version
+          python-version: '3.12'
+          check-disk: 'false'
 
       - name: Pull large image first
         run: |
           export COMPOSE_HTTP_TIMEOUT=600
           docker pull nvcr.io/nvidia/rapidsai/notebooks:25.06-cuda12.8-py3.12
 
-      - name: Start containers
-        run: docker-compose -f ./docker/brev/docker-compose-nb-2506.yaml up -d
+      - name: Start container
+        run: |
+          export COMPOSE_HTTP_TIMEOUT=600
+          docker-compose -f ./docker/brev/docker-compose-nb-2506.yaml up -d --verbose
+
+      - name: Debug container logs
+        if: ${{ failure() }}
+        run: |
+          docker ps -a
+          docker system df
+          docker stats
+          docker logs brev_backend_1
 
       - name: Check running containers
         run: docker ps -a

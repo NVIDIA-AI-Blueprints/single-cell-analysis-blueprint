@@ -1,0 +1,90 @@
+name: 'Check Environment Information'
+description: 'Show / Check system information'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install software
+      run: |
+        sudo apt update && sudo apt install -y pciutils
+      shell: bash
+    
+    - name: Check System Info
+      run: |
+        echo "=== OS Info ==="
+        uname -a  # Linux/macOS
+        cat /etc/os-release
+        
+        echo "=== CPU Info ==="
+        lscpu || sysctl -n machdep.cpu.brand_string  # Linux | macOS
+        
+        echo "=== Memory Info ==="
+        free -h || vm_stat  # Linux | macOS
+        
+        echo "=== Disk Space ==="
+        df -h  # Linux/macOS
+      shell: bash
+
+    - name: Check GPU Info
+      run: |
+        echo "===== 1. Check PCI Devices (GPU) ====="
+        sudo lspci | grep -i vga
+        
+        echo "===== 2. Check NVIDIA GPU (if exists) ====="
+        if command -v nvidia-smi &> /dev/null; then
+          nvidia-smi
+        else
+          echo "NVIDIA GPU not detected or drivers not installed."
+        fi
+
+        echo "===== 3. Check OpenCL/ROCm (AMD/Intel) ====="
+        if command -v clinfo &> /dev/null; then
+          clinfo | grep -i "device name"
+        else
+          echo "OpenCL/ROCm not available."
+        fi
+      shell: bash
+
+    - name: Check CUDA/cuDNN
+      run: |
+        echo "===== CUDA Version ====="
+        if command -v nvcc &> /dev/null; then
+          nvcc --version
+        else
+          echo "CUDA not installed."
+        fi
+
+        echo "===== cuDNN Version ====="
+        if [ -f /usr/local/cuda/include/cudnn_version.h ]; then
+          grep -E "define CUDNN_MAJOR|define CUDNN_MINOR|define CUDNN_PATCHLEVEL" /usr/local/cuda/include/cudnn_version.h
+        else
+          echo "cuDNN not found."
+        fi
+      shell: bash
+
+    - name: Check Vulkan
+      run: |
+        echo "===== Vulkan Info ====="
+        if command -v vulkaninfo &> /dev/null; then
+          vulkaninfo --summary | grep "GPU id"
+        else
+          echo "Vulkan not installed."
+        fi
+      shell: bash
+
+    - name: Check OpenCL/ROCm
+      run: |
+        echo "===== OpenCL Devices ====="
+        if command -v clinfo &> /dev/null; then
+          clinfo | grep -A 5 "Device Name"
+        else
+          echo "OpenCL not installed."
+        fi
+
+        echo "===== ROCm (AMD GPU) ====="
+        if [ -f /opt/rocm/bin/rocminfo ]; then
+          /opt/rocm/bin/rocminfo | grep "gfx"
+        else
+          echo "ROCm not installed."
+        fi
+      shell: bash

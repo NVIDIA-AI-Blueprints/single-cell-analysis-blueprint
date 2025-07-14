@@ -1,0 +1,60 @@
+name: 'Setup Environment'
+description: 'Configures Python, and checks disk space'
+inputs:
+  python-version:
+    description: 'Python version'
+    required: false
+    default: '3.12'
+  check-disk:
+    description: 'Whether to check disk space'
+    required: false
+    default: 'true'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Python ${{ inputs.python-version }}
+      if: ${{ inputs.python-version != 'false' }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: 'pip'
+        cache-dependency-path: |
+          requirements.txt
+          **/*.ipynb
+      shell: bash
+
+    - name: Check Disk
+      if: ${{ inputs.check-disk == 'true' }}
+      run: df -h
+      shell: bash
+
+    - name: Print Environment
+      run: |
+        echo "Python: $(python --version || echo 'Not installed')"
+      shell: bash
+    
+    - name: Install dependencies
+      env:
+        NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install papermill
+        pip install ipywidgets
+        pip install torch
+        # Install wget
+        sudo apt-get update
+        sudo apt-get install wget
+        # Install Docker and Docker Compose in a single step
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sudo sh get-docker.sh
+        sudo apt-get update
+        sudo apt-get install -y docker-compose-plugin docker-compose build-essential
+        # Get System Info
+        echo "===================== System Info ====================="
+        more /etc/os-release
+        nvidia-smi
+        docker version
+        docker compose version
+      shell: bash
