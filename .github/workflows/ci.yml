@@ -22,13 +22,20 @@ jobs:
     runs-on: arc-runner-set-oke-org-poc
     # runs-on: arc-runner-set-oke-org-nv-ai-bp
     env:
-      # NOTEBOOK_PATH: ./launchable/1_Deploy_LLM_Router.ipynb
+      DOCKER_COMPOSE_FILE: ./docker/brev/docker-compose-nb-2504.yaml 
       NOTEBOOK_PATH: ./notebooks/01_scRNA_analysis_preprocessing.ipynb
       PYTHON_VERSION: 3.12
     steps:  
       - name: Checkout BP repository
         uses: actions/checkout@v4
      
+      - uses: ./.github/actions/check-sysinfo
+
+      # - uses: ./.github/actions/setup-env
+      #   with:
+      #     python-version: '3.12'
+      #     check-disk: 'false'
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -62,44 +69,70 @@ jobs:
           docker version
           docker compose version
 
-      - name: Env checking
+      - name: Pull large image first
         run: |
-          ls -al /usr/bin | grep python
+          # export COMPOSE_HTTP_TIMEOUT=600
+          docker pull nvcr.io/nvidia/rapidsai/notebooks:25.06-cuda12.8-py3.12
 
-      - name: Workaround Code
+      - name: Start container
         run: |
-          sudo ln -s /usr/bin/python3 /usr/bin/python 
+          export COMPOSE_HTTP_TIMEOUT=300
+          docker images -a
+          echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
+          docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d
+
+      - name: Debug container logs
+        if: ${{ failure() }}
+        run: |
+          docker ps -a
+          # docker system df
+          # docker stats
+          docker logs brev_backend_1
+
+      - name: Check running containers
+        run: docker ps -a
+
+      - name: Test CMDs in container
+        run: |
+          docker-compose config --services
+          docker-compose exec -T backend pwd
+          docker-compose exec -T backend ls -al .
+          docker-compose exec -T backend tree .
+
+      - name: Stop containers
+        if: ${{ always() }}
+        run: docker-compose -f "$DOCKER_COMPOSE_FILE" down
           
-      - name: Run Jupyter Notebook
-        env:
-          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-          NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
-          NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
-        run: |
-          python --version
-          python3 --version
+      # - name: Run Jupyter Notebook
+      #   env:
+      #     NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+      #     NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
+      #     NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
+      #   run: |
+      #     python --version
+      #     python3 --version
 
-          pip install ipykernel
-          python -m ipykernel install --user --name python3 --display-name "python3"
-          jupyter kernelspec list
+      #     pip install ipykernel
+      #     python -m ipykernel install --user --name python3 --display-name "python3"
+      #     jupyter kernelspec list
 
-          OUTPUT_NOTEBOOK="result.ipynb"
-          echo "Executing notebook: $NOTEBOOK_PATH"
-          papermill "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" --log-output --log-level DEBUG
-          echo "===============show content of nb====================="
-          cat "$OUTPUT_NOTEBOOK"
-          echo "===============show content of nb====================="
+      #     OUTPUT_NOTEBOOK="result.ipynb"
+      #     echo "Executing notebook: $NOTEBOOK_PATH"
+      #     papermill "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" --log-output --log-level DEBUG
+      #     echo "===============show content of nb====================="
+      #     cat "$OUTPUT_NOTEBOOK"
+      #     echo "===============show content of nb====================="
           
-      - name: Convert result to html format
-        if: always()
-        env:
-          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-        run: |
-          OUTPUT_NOTEBOOK="result.ipynb"
-          jupyter nbconvert --to html "$OUTPUT_NOTEBOOK"
-          echo "===============show content of nb html====================="
-          cat ./result.html
-          echo "===============show content of nb html====================="
+      # - name: Convert result to html format
+      #   if: always()
+      #   env:
+      #     NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+      #   run: |
+      #     OUTPUT_NOTEBOOK="result.ipynb"
+      #     jupyter nbconvert --to html "$OUTPUT_NOTEBOOK"
+      #     echo "===============show content of nb html====================="
+      #     cat ./result.html
+      #     echo "===============show content of nb html====================="
 
       # - name: Checkout Test repository
       #   uses: actions/checkout@v4
