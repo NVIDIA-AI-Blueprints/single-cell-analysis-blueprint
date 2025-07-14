@@ -23,7 +23,7 @@ jobs:
     # runs-on: arc-runner-set-oke-org-nv-ai-bp
     env:
       DOCKER_IMG_NAME: "nvcr.io/nvidia/rapidsai/notebooks:25.06-cuda12.8-py3.12"
-      DOCKER_COMPOSE_FILE: "$GITHUB_WORKSPACE/docker/brev/docker-compose-nb-2504.yaml"
+      DOCKER_COMPOSE_FILE: "${{ github.workspace }}/docker/brev/docker-compose-nb-2504.yaml"
       NOTEBOOK_PATH: "./notebooks/01_scRNA_analysis_preprocessing.ipynb"
       PYTHON_VERSION: "3.12"
     steps:  
