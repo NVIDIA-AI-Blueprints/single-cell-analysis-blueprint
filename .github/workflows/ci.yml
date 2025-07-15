@@ -58,16 +58,10 @@ jobs:
             requirements.txt
             **/*.ipynb
             
-      - name: Install dependencies
+      - name: Setup docker env
         env:
           NGC_API_Key: ${{ secrets.NGC_API_KEY }}
         run: |
-          # python -m pip install --upgrade pip
-          # pip install -r requirements.txt
-          # pip install papermill
-          # pip install ipywidgets
-          # pip install torch
-
           # Install wget
           sudo apt-get update
           sudo apt-get install wget
@@ -122,7 +116,7 @@ jobs:
                 exit 1
               }
             fi
-            mkdir -p /tmp
+            mkdir -p ${DOCKER_CACHE_PATH}
             docker save $DOCKER_IMG_NAME > ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
           fi
           
@@ -149,9 +143,11 @@ jobs:
           docker images -a
           echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
           
-          export COMPOSE_HTTP_TIMEOUT=300
+          export HOST_PIP_CACHE_DIR="$HOME/.cache/pip"
           export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
 
+          set -e
+          export COMPOSE_HTTP_TIMEOUT=300
           docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d --wait
           
           end_time=$(date +%s)
