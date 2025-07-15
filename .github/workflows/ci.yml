@@ -148,7 +148,7 @@ jobs:
           echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
           
           # export HOST_PIP_CACHE_DIR="$HOME/.cache/pip"
-          export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
+          export NOTEBOOKS_HOST_PATH="${{ github.workspace }}/notebooks"
 
           set -e
           export COMPOSE_HTTP_TIMEOUT=300
@@ -200,14 +200,14 @@ jobs:
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             set -e
-            echo '=== Creating clean virtual environment ==='
-            python -m venv $VENV_PATH --clear
-            source $VENV_PATH/bin/activate
+            # echo '=== Creating clean virtual environment ==='
+            # python -m venv $VENV_PATH --clear
+            # source $VENV_PATH/bin/activate
 
             echo '=== Upgrading pip and cleaning old installations ==='
             python -m pip install --upgrade pip
-            pip cache purge
-            rm -rf /root/.cache/pip
+            # pip cache purge
+            # rm -rf /root/.cache/pip
 
             echo '=== Installing requirements ==='
             pip install --no-cache-dir -r requirements.txt
@@ -216,8 +216,8 @@ jobs:
             echo '=== Verifying installations ==='
             pip list
 
-            echo '=== Registering Jupyter kernel ==='
-            python -m ipykernel install --user --name python3 --display-name 'Python 3'
+            # echo '=== Registering Jupyter kernel ==='
+            # python -m ipykernel install --user --name python3 --display-name 'Python 3'
       
             echo '=== Verifying kernel ==='
             jupyter kernelspec list

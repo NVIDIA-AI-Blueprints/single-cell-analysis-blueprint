@@ -23,11 +23,12 @@ services:
       - "0.0.0.0:8786:8786"      # Dask scheduler
     volumes:
       # - ${HOST_PIP_CACHE_DIR:-/home/runner/.cache/pip}:/root/.cache/pip
-      - ${NOTEBOOKS_HOST_PATH:-/home/runner/single-cell-analysis-blueprint}:/notebooks
-    user: root
-    working_dir: /notebooks
+      - ${NOTEBOOKS_HOST_PATH:-/home/runner/single-cell-analysis-blueprint/notebooks}:/tmp/notebooks
+      # - /home/johnnyj/Development/source_code/git/github.com/nvidia/bp-cicd-org/single-cell-analysis-blueprint/notebooks:/tmp/notebooks
+    user: rapids
+    working_dir: /home/rapids
     entrypoint: ["/home/rapids/entrypoint.sh"]
-    command: python -m jupyter lab --allow-root --ip=0.0.0.0 --no-browser --NotebookApp.token='' --NotebookApp.password='' --notebook-dir=/notebooks
+    command: sh -c "cp -r /tmp/notebooks ~/ && python -m jupyter lab --allow-root --ip=0.0.0.0 --no-browser --NotebookApp.token='' --NotebookApp.password='' --notebook-dir=/home/rapids/notebooks"
     restart: unless-stopped
 
  
