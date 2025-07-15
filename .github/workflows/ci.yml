@@ -117,10 +117,11 @@ jobs:
             echo "[Info]: the docker image cache does NOT exists, just pull it from remote --- Done"
 
             if ! docker pull "$DOCKER_IMG_NAME"; then
-            mkdir -p ${DOCKER_CACHE_PATH}
-            echo "[Info]: the docker image pull done, save it to cache path now"
-            docker save $DOCKER_IMG_NAME > ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
-            echo "[Info]: the docker image pull done, save it to cache path now --- Done"
+              mkdir -p ${DOCKER_CACHE_PATH}
+              echo "[Info]: the docker image pull done, save it to cache path now"
+              docker save $DOCKER_IMG_NAME > ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
+              echo "[Info]: the docker image pull done, save it to cache path now --- Done"
+            fi
           fi
           
           end_time=$(date +%s)
