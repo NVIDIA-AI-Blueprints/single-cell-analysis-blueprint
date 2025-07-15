@@ -211,7 +211,7 @@ jobs:
 
             echo '=== Installing requirements ==='
             pip install --no-cache-dir -r requirements.txt
-            pip install --no-cache-dir papermill ipywidgets torch ipykernel cupy
+            pip install --no-cache-dir papermill
 
             echo '=== Verifying installations ==='
             pip list
@@ -226,7 +226,7 @@ jobs:
           echo "=============== Executing notebook ====================="
           OUTPUT_NOTEBOOK="result.ipynb"
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
-            source $VENV_PATH/bin/activate && \
+            # source $VENV_PATH/bin/activate && \
             papermill '$NOTEBOOK_PATH' '$OUTPUT_NOTEBOOK' \
               --log-output \
               --log-level DEBUG \
