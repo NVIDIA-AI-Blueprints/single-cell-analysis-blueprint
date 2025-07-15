@@ -85,9 +85,11 @@ jobs:
           key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}
       
       - name: Ensure cache directory exists
-        run: mkdir -p {{ env.DOCKER_CACHE_PATH }}
+        run: |
+          mkdir -p ${{ env.DOCKER_CACHE_PATH }}
+          sudo chown -R $USER "${{ env.DOCKER_CACHE_PATH }}"
 
-      - name: Debug cache key
+      - name: Debug info
         run: |
           echo "Primary Key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}"
           echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit }}"
@@ -128,12 +130,13 @@ jobs:
         if: always()
         uses: actions/cache@v3
         with:
-          path: /tmp
+          path: ${{ env.DOCKER_CACHE_PATH }}
           key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}
 
       - name: Verify cache
         run: |
-          du -sh /tmp
+          DOCKER_CACHE_PATH="${{ env.DOCKER_CACHE_PATH }}"
+          du -sh ${DOCKER_CACHE_PATH}
           echo "Cache Key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}"
           echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit }}"
 
@@ -143,7 +146,7 @@ jobs:
           docker images -a
           echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
           
-          export HOST_PIP_CACHE_DIR="$HOME/.cache/pip"
+          # export HOST_PIP_CACHE_DIR="$HOME/.cache/pip"
           export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
 
           set -e
@@ -168,39 +171,49 @@ jobs:
       - name: Debug Info
         run: |
           echo "=============Debug Info======================"
-          docker-compose -f "$DOCKER_COMPOSE_FILE" config --services
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al .
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend find . -maxdepth 2 | sed -e 's|[^/]*/|- |g' -e 's|^\./||'
+          docker compose -f "$DOCKER_COMPOSE_FILE" config --services
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend whoami
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al .
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend find . -maxdepth 2 | sed -e 's|[^/]*/|- |g' -e 's|^\./||'
 
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat /home/rapids/entrypoint.sh
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip list
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat /home/rapids/entrypoint.sh
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip list
 
           echo "=============Debug Info======================"
 
       - name: Run Jupyter Notebook
+        timeout-minutes: 30
+        continue-on-error: true
         env:
           NGC_API_Key: ${{ secrets.NGC_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
           NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
         run: |
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python --version
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python --version
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
 
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m pip install --upgrade pip
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install -r requirements.txt
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install -r papermill ipywidgets torch
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m pip install --upgrade pip
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install -r requirements.txt
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install papermill ipywidgets torch
 
-          # docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m ipykernel install --user --name python3 --display-name "python3"
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter kernelspec list
+          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m ipykernel install --user --name python3 --display-name "python3"
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter kernelspec list
 
           OUTPUT_NOTEBOOK="result.ipynb"
           echo "Executing notebook: $NOTEBOOK_PATH"
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend papermill "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" --log-output --log-level DEBUG
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend papermill \
+            "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" \
+            --log-output \
+            --log-level DEBUG \
+            --progress-bar \
+            --report-mode \
+            --kernel python3
+
           echo "===============show content of nb====================="
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "$OUTPUT_NOTEBOOK"
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "$OUTPUT_NOTEBOOK"
           echo "===============show content of nb====================="
           
       - name: Convert result to html format
@@ -209,9 +222,9 @@ jobs:
           NGC_API_Key: ${{ secrets.NGC_API_KEY }}
         run: |
           OUTPUT_NOTEBOOK="result.ipynb"
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK"
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK"
           echo "===============show content of nb html====================="
-          docker-compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat ./result.html
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat ./result.html
           echo "===============show content of nb html====================="
 
       # - name: Checkout Test repository
@@ -242,5 +255,11 @@ jobs:
 
       - name: Stop containers
         if: ${{ always() }}
-        run: docker-compose -f "$DOCKER_COMPOSE_FILE" down
+        run: docker compose -f "$DOCKER_COMPOSE_FILE" down
+
+      - name: Clean up
+        if: always()
+        run: |
+          docker system prune -f
+          sudo rm -rf "${{ env.DOCKER_CACHE_PATH }}"
           
