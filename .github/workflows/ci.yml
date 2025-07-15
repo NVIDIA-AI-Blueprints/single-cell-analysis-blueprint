@@ -73,7 +73,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.DOCKER_CACHE_PATH }}
-          key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}-${{ github.sha }}
+          key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}-nb-cuda
       
       - name: Ensure cache directory exists
         run: |
@@ -127,12 +127,12 @@ jobs:
           echo "Execution time: $((end_time - start_time)) seconds"
         timeout-minutes: 20
 
-      - name: Update cache if needed
-        if: always()
-        uses: actions/cache@v3
-        with:
-          path: ${{ env.DOCKER_CACHE_PATH }}
-          key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}
+      # - name: Update cache if needed
+      #   if: always()
+      #   uses: actions/cache@v3
+      #   with:
+      #     path: ${{ env.DOCKER_CACHE_PATH }}
+      #     key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}
 
       - name: Verify cache
         run: |
