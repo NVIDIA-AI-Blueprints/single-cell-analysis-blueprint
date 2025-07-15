@@ -73,7 +73,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.DOCKER_CACHE_PATH }}
-          key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}
+          key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}-${{ github.sha }}
       
       - name: Ensure cache directory exists
         run: |
@@ -83,8 +83,9 @@ jobs:
 
       - name: Debug info
         run: |
-          echo "Primary Key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}"
-          echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit }}"
+          echo "Primary Key: ${{ steps.cache-docker-image.outputs.cache-primary-key || 'N/A' }}"
+          echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit || 'false' }}"
+          echo "Cache Path: ${{ env.DOCKER_CACHE_PATH }}"
 
       - name: Load docker image from cache or Pull it
         run: |
@@ -188,9 +189,16 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m pip install --upgrade pip
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install -r requirements.txt
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
+              pip uninstall -y scipy numpy && \
+              rm -rf /root/.cache/pip && \
+              pip install --no-cache-dir \
+                  -r requirements.txt
+          "
+          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install -r requirements.txt
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install papermill ipywidgets torch
 
+          echo "===============start to run jupyter notebook====================="
           # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m ipykernel install --user --name python3 --display-name "python3"
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter kernelspec list
 
@@ -203,6 +211,7 @@ jobs:
             --progress-bar \
             --report-mode \
             --kernel python3
+          echo "===============start to run jupyter notebook====================="
 
           echo "===============show content of nb====================="
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "$OUTPUT_NOTEBOOK"
