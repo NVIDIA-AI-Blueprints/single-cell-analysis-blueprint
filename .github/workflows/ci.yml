@@ -44,20 +44,11 @@ jobs:
      
       - uses: ./.github/actions/check-sysinfo
 
-      # - uses: ./.github/actions/setup-env
-      #   with:
-      #     python-version: '3.12'
-      #     check-disk: 'false'
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: ./.github/actions/setup-env
         with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
-          cache-dependency-path: |
-            requirements.txt
-            **/*.ipynb
-            
+          python-version: '3.12'
+          check-disk: 'false'
+
       - name: Setup docker env
         env:
           NGC_API_Key: ${{ secrets.NGC_API_KEY }}
@@ -87,7 +78,8 @@ jobs:
       - name: Ensure cache directory exists
         run: |
           mkdir -p ${{ env.DOCKER_CACHE_PATH }}
-          sudo chown -R $USER "${{ env.DOCKER_CACHE_PATH }}"
+          sudo chown -R $(id -u):$(id -g) /tmp/docker-pull-cache
+          ls -ld /tmp/docker-pull-cache
 
       - name: Debug info
         run: |
