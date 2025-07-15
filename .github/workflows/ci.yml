@@ -101,8 +101,11 @@ jobs:
 
           DOCKER_CACHE_PATH="${{ env.DOCKER_CACHE_PATH }}"
           if [ -f "${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar" ]; then
+            echo "[Info]: the docker image cache exists, just load it from cache"
             docker load -i ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
+            echo "[Info]: the docker image cache exists, just load it from cache --- Done"
           else
+            echo "[Info]: the docker image cache does NOT exists, just pull it from remote"
             if ! docker pull "$DOCKER_IMG_NAME"; then
               echo "Pull failed, retrying..." 
               sleep 30
@@ -111,8 +114,13 @@ jobs:
                 exit 1
               }
             fi
+            echo "[Info]: the docker image cache does NOT exists, just pull it from remote --- Done"
+
+            if ! docker pull "$DOCKER_IMG_NAME"; then
             mkdir -p ${DOCKER_CACHE_PATH}
+            echo "[Info]: the docker image pull done, save it to cache path now"
             docker save $DOCKER_IMG_NAME > ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
+            echo "[Info]: the docker image pull done, save it to cache path now --- Done"
           fi
           
           end_time=$(date +%s)
@@ -191,8 +199,8 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m pip install --upgrade pip
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m pip uninstall -y scipy numpy 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
-              pip uninstall -y scipy numpy && \
               rm -rf /root/.cache/pip && \
               pip install --no-cache-dir \
                   -r requirements.txt
