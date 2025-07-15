@@ -119,6 +119,7 @@ jobs:
             mkdir -p ${DOCKER_CACHE_PATH}
             echo "[Info]: the docker image pull done, save it to cache path now"
             docker save $DOCKER_IMG_NAME > ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
+            ls -alh ${DOCKER_CACHE_PATH}
             echo "[Info]: the docker image pull done, save it to cache path now --- Done"
           fi
           
@@ -210,7 +211,7 @@ jobs:
 
             echo '=== Installing requirements ==='
             pip install --no-cache-dir -r requirements.txt
-            pip install --no-cache-dir papermill ipywidgets torch ipykernel
+            pip install --no-cache-dir papermill ipywidgets torch ipykernel cupy
 
             echo '=== Verifying installations ==='
             pip list
