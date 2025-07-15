@@ -42,8 +42,6 @@ jobs:
           ls -al .
           echo "=============Debug Info======================"
      
-      - uses: ./.github/actions/check-sysinfo
-
       - uses: ./.github/actions/setup-env
         with:
           python-version: '3.12'
@@ -67,6 +65,8 @@ jobs:
           nvidia-smi
           docker version
           docker compose version
+
+      - uses: ./.github/actions/check-sysinfo
 
       - name: Cache Docker image
         id: cache-docker-image
@@ -174,10 +174,12 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat /home/rapids/entrypoint.sh
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip list
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend df -lh
 
           echo "=============Debug Info======================"
 
       - name: Run Jupyter Notebook
+        id: run-jupyter-notebook
         timeout-minutes: 30
         continue-on-error: true
         env:
@@ -218,10 +220,11 @@ jobs:
           echo "===============show content of nb====================="
           
       - name: Convert result to html format
-        if: always()
+        if: steps.run-jupyter-notebook.outcome == 'success'
         env:
           NGC_API_Key: ${{ secrets.NGC_API_KEY }}
         run: |
+          echo "Run jupyter notebook succeeded, running Convert result to HTML format"
           OUTPUT_NOTEBOOK="result.ipynb"
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK"
           echo "===============show content of nb html====================="

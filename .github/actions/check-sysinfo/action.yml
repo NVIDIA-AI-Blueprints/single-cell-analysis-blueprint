@@ -88,3 +88,10 @@ runs:
           echo "ROCm not installed."
         fi
       shell: bash
+
+    - name: Check memory
+      run: |
+        free -h
+        df -h
+        docker stats --no-stream
+      shell: bash
