@@ -192,34 +192,44 @@ jobs:
           NGC_API_Key: ${{ secrets.NGC_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
           NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
+          VENV_PATH: "/opt/venv"
         run: |
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python --version
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
 
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m pip install --upgrade pip
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m pip uninstall -y scipy numpy 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
-              rm -rf /root/.cache/pip && \
-              pip install --no-cache-dir \
-                  -r requirements.txt
+            set -e
+            echo '=== Creating clean virtual environment ==='
+            python -m venv $VENV_PATH --clear
+            source $VENV_PATH/bin/activate
+
+            echo '=== Upgrading pip and cleaning old installations ==='
+            python -m pip install --upgrade pip
+            pip cache purge
+            rm -rf /root/.cache/pip
+
+            echo '=== Installing requirements ==='
+            pip install --no-cache-dir -r requirements.txt
+            pip install --no-cache-dir papermill ipywidgets torch
+
+            echo '=== Verifying installations ==='
+            pip list
+            jupyter kernelspec list
           "
-          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install -r requirements.txt
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip install papermill ipywidgets torch
 
-          echo "===============start to run jupyter notebook====================="
           # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m ipykernel install --user --name python3 --display-name "python3"
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter kernelspec list
 
+          echo "=============== Executing notebook ====================="
           OUTPUT_NOTEBOOK="result.ipynb"
-          echo "Executing notebook: $NOTEBOOK_PATH"
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend papermill \
-            "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" \
-            --log-output \
-            --log-level DEBUG \
-            --progress-bar \
-            --report-mode \
-            --kernel python3
-          echo "===============start to run jupyter notebook====================="
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
+            source $VENV_PATH/bin/activate && \
+            papermill '$NOTEBOOK_PATH' '$OUTPUT_NOTEBOOK' \
+              --log-output \
+              --log-level DEBUG \
+              --progress-bar \
+              --report-mode \
+              --kernel python3
+          "
 
           echo "===============show content of nb====================="
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "$OUTPUT_NOTEBOOK"
