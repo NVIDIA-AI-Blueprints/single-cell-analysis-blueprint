@@ -104,12 +104,15 @@ jobs:
           echo "Docker image will use: $DOCKER_IMG_NAME"
 
           DOCKER_IMG_CACHE_NAME=$(echo "$DOCKER_IMG_NAME" | sed 's/[\/:@.]/_/g')
+
+          ### NOTE: it will save to the global ENV, BUT it won't efective in current step !!!
+          ### so you still need to use ${***} in current step.
           echo "DOCKER_IMG_CACHE_NAME=${DOCKER_IMG_CACHE_NAME}" >> $GITHUB_ENV
-          echo "Cache filename: ${{ env.DOCKER_IMG_CACHE_NAME }}.tar"
+          echo "Cache filename: ${DOCKER_IMG_CACHE_NAME}.tar"
 
-
-          if [ -f "${{ env.DOCKER_CACHE_PATH }}/${{ env.DOCKER_IMG_CACHE_NAME }}.tar" ]; then
-            docker load -i ${{ env.DOCKER_CACHE_PATH }}/${{ env.DOCKER_IMG_CACHE_NAME }}.tar
+          DOCKER_CACHE_PATH="${{ env.DOCKER_CACHE_PATH }}"
+          if [ -f "${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar" ]; then
+            docker load -i ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
           else
             if ! docker pull "$DOCKER_IMG_NAME"; then
               echo "Pull failed, retrying..." 
@@ -120,7 +123,7 @@ jobs:
               }
             fi
             mkdir -p /tmp
-            docker save $DOCKER_IMG_NAME > ${{ env.DOCKER_CACHE_PATH }}/${{ env.DOCKER_IMG_CACHE_NAME }}.tar
+            docker save $DOCKER_IMG_NAME > ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
           fi
           
           end_time=$(date +%s)
