@@ -210,14 +210,17 @@ jobs:
 
             echo '=== Installing requirements ==='
             pip install --no-cache-dir -r requirements.txt
-            pip install --no-cache-dir papermill ipywidgets torch
+            pip install --no-cache-dir papermill ipywidgets torch ipykernel
 
             echo '=== Verifying installations ==='
             pip list
+
+            echo '=== Registering Jupyter kernel ==='
+            python -m ipykernel install --user --name python3 --display-name 'Python 3'
+      
+            echo '=== Verifying kernel ==='
             jupyter kernelspec list
           "
-
-          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python -m ipykernel install --user --name python3 --display-name "python3"
 
           echo "=============== Executing notebook ====================="
           OUTPUT_NOTEBOOK="result.ipynb"
