@@ -202,7 +202,6 @@ jobs:
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend whoami
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al ~/
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /tmp/
 

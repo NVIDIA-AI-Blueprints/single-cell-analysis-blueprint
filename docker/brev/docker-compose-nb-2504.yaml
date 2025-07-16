@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     image: nvcr.io/nvidia/rapidsai/notebooks:25.04-cuda12.8-py3.12
