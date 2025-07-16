@@ -33,6 +33,14 @@ jobs:
       NOTEBOOK_PATH: "./notebooks/01_scRNA_analysis_preprocessing.ipynb"
       PYTHON_VERSION: "3.12"
     steps:  
+      - name: Set global vars
+        id: set_global_vars  # 必须指定 id，以便后续步骤引用
+        run: |
+          DOCKER_IMG_CACHE_NAME=$(echo "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" | sed 's/[\/:@.]/_/g')
+          echo "Cache filename: ${DOCKER_IMG_CACHE_NAME}.tar"
+
+          echo "docker_img_cache_name=${DOCKER_IMG_CACHE_NAME}" >> $GITHUB_OUTPUT
+
       - name: Checkout BP repository
         uses: actions/checkout@v4
         
@@ -96,26 +104,32 @@ jobs:
           echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit || 'false' }}"
           echo "Cache Path: ${{ env.DOCKER_CACHE_PATH }}"
           ls -la ${{ env.DOCKER_CACHE_PATH }}
+        
+      - name: Load cached docker image
+        if: steps.cache-docker-image.outputs.cache-hit == 'true'
+        run: |
+          DOCKER_CACHE_PATH="${{ env.DOCKER_CACHE_PATH }}"
+          DOCKER_IMG_CACHE_NAME="${{ steps.set_global_vars.outputs.docker_img_cache_name }}"
+          echo "Cached file with path: $DOCKER_CACHE_PATH/$DOCKER_IMG_CACHE_NAME"
 
+          if [ -f "${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar"]; then
+            echo "[Info]: the docker image cache exists, just load it from cache"
+            docker load -i "${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}".tar
+            echo "[Info]: the docker image cache exists, just load it from cache --- Done"
+          fi
 
-      - name: Load docker image from cache or Pull it
+      - name: Pull docker image
         run: |
           start_time=$(date +%s)
-          echo "Docker image will use: $DOCKER_IMG_NAME:$DOCKER_IMG_TAG"
 
-          DOCKER_IMG_CACHE_NAME=$(echo "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" | sed 's/[\/:@.]/_/g')
-
-          ### NOTE: it will save to the global ENV, BUT it won't efective in current step !!!
-          ### so you still need to use ${***} in current step.
-          echo "DOCKER_IMG_CACHE_NAME=${DOCKER_IMG_CACHE_NAME}" >> $GITHUB_ENV
-          echo "Cache filename: ${DOCKER_IMG_CACHE_NAME}.tar"
-
+          DOCKER_IMG_NAME="${{ env.DOCKER_IMG_NAME }}"
+          DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
           DOCKER_CACHE_PATH="${{ env.DOCKER_CACHE_PATH }}"
-          if [[ "${{ steps.cache-docker-image.outputs.cache-hit }}" == 'true' ]] && [ -f "${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar" ]; then
-            echo "[Info]: the docker image cache exists, just load it from cache"
-            docker load -i ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
-            echo "[Info]: the docker image cache exists, just load it from cache --- Done"
-          else
+          DOCKER_IMG_CACHE_NAME="${{ steps.set_global_vars.outputs.docker_img_cache_name }}"
+
+          echo "Docker image will use: $DOCKER_IMG_NAME:$DOCKER_IMG_TAG"
+          
+          if ! docker image inspect $DOCKER_IMG_NAME:$DOCKER_IMG_TAG >/dev/null 2>&1; then
             echo "[Info]: the docker image cache does NOT exists, just pull it from remote"
             if ! docker pull "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG"; then
               echo "Pull failed, retrying..." 
@@ -125,14 +139,15 @@ jobs:
                 exit 1
               }
             fi
-
-            echo "[Info]: the docker image cache does NOT exists, just pull it from remote --- Done"
-            mkdir -p ${DOCKER_CACHE_PATH}
-            echo "[Info]: the docker image pull done, save it to cache path now"
-            docker save $DOCKER_IMG_NAME:$DOCKER_IMG_TAG > ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
-            ls -alh ${DOCKER_CACHE_PATH}
-            echo "[Info]: the docker image pull done, save it to cache path now --- Done"
           fi
+
+          echo "[Info]: the docker image cache does NOT exists, just pull it from remote --- Done"
+          
+          mkdir -p ${DOCKER_CACHE_PATH}
+          echo "[Info]: the docker image pull done, save it to cache path now"
+          docker save $DOCKER_IMG_NAME:$DOCKER_IMG_TAG > ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
+          ls -alh ${DOCKER_CACHE_PATH}
+          echo "[Info]: the docker image pull done, save it to cache path now --- Done"
           
           end_time=$(date +%s)
           echo "Execution time: $((end_time - start_time)) seconds"
@@ -141,9 +156,7 @@ jobs:
       - name: Verify cache
         run: |
           DOCKER_CACHE_PATH="${{ env.DOCKER_CACHE_PATH }}"
-          du -sh ${DOCKER_CACHE_PATH}
-          echo "Cache Key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}"
-          echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit }}"
+          du -sh ${DOCKER_CACHE_PATH}/*
 
       - name: Start container
         run: |
