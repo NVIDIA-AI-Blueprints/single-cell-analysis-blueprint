@@ -31,6 +31,8 @@ jobs:
       DOCKER_COMPOSE_FILE: "${{ github.workspace }}/docker/brev/docker-compose-nb-2504.yaml"
       DOCKER_CACHE_PATH: "/tmp/docker-pull-cache"
       NOTEBOOK_PATH: "./notebooks/01_scRNA_analysis_preprocessing.ipynb"
+      OUTPUT_NOTEBOOK: "/tmp/result.ipynb"
+      OUTPUT_HTML: "/tmp/result.html"
       PYTHON_VERSION: "3.12"
     steps:  
       - name: Set global vars
@@ -258,7 +260,7 @@ jobs:
           "
 
           echo "=============== Executing notebook ====================="
-          OUTPUT_NOTEBOOK="~/result.ipynb"
+          OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             # source $VENV_PATH/bin/activate && \
             papermill '$NOTEBOOK_PATH' '$OUTPUT_NOTEBOOK' \
@@ -266,12 +268,11 @@ jobs:
               --log-level DEBUG \
               --progress-bar \
               --report-mode \
-              --kernel python3
+              --kernel python3 && \
+            cat '$OUTPUT_NOTEBOOK'
           "
+          echo "=============== Executing notebook --- Done ====================="
 
-          echo "===============show content of nb====================="
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "$OUTPUT_NOTEBOOK"
-          echo "===============show content of nb====================="
           
       - name: Convert result to html format
         if: steps.run-jupyter-notebook.outcome == 'success'
@@ -279,10 +280,11 @@ jobs:
           NGC_API_Key: ${{ secrets.NGC_API_KEY }}
         run: |
           echo "Run jupyter notebook succeeded, running Convert result to HTML format"
-          OUTPUT_NOTEBOOK="~/result.ipynb"
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK"
+          OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
+          OUTPUT_HTML="${{ env.OUTPUT_HTML }}"
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK" -o "$OUTPUT_HTML"
           echo "===============show content of nb html====================="
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat ./result.html
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "$OUTPUT_HTML"
           echo "===============show content of nb html====================="
 
       # - name: Checkout Test repository
