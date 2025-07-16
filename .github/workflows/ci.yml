@@ -93,9 +93,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.DOCKER_CACHE_PATH }}
-          key: ${{ runner.os }}-docker-${{ env.DOCKER_IMG_TAG }}-nb-cuda
+          key: ${{ runner.os }}-docker-${{ env.DOCKER_IMG_NAME }}-${{ env.DOCKER_IMG_TAG }}
           restore-keys: |
-            ${{ runner.os }}-docker-${{ env.DOCKER_IMG_TAG }}-
             ${{ runner.os }}-docker-
       
       - name: Debug info
@@ -146,6 +145,7 @@ jobs:
           mkdir -p ${DOCKER_CACHE_PATH}
           echo "[Info]: the docker image pull done, save it to cache path now"
           docker save $DOCKER_IMG_NAME:$DOCKER_IMG_TAG > ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
+          docker save -o ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar $DOCKER_IMG_NAME:$DOCKER_IMG_TAG
           ls -alh ${DOCKER_CACHE_PATH}
           echo "[Info]: the docker image pull done, save it to cache path now --- Done"
           
@@ -188,7 +188,6 @@ jobs:
       - name: Check containers status
         run: |
           docker ps -a
-          docker inspect <container_name> | grep -A 10 ExitCode
           docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
           cat docker-logs.txt
 
