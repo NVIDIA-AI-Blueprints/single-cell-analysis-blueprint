@@ -127,13 +127,6 @@ jobs:
           echo "Execution time: $((end_time - start_time)) seconds"
         timeout-minutes: 20
 
-      # - name: Update cache if needed
-      #   if: always()
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: ${{ env.DOCKER_CACHE_PATH }}
-      #     key: ${{ steps.cache-docker-image.outputs.cache-primary-key }}
-
       - name: Verify cache
         run: |
           DOCKER_CACHE_PATH="${{ env.DOCKER_CACHE_PATH }}"
