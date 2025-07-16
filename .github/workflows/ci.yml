@@ -263,7 +263,6 @@ jobs:
           echo "===============show content of nb====================="
           
       - name: Convert result to html format
-        continue-on-error: true
         if: steps.run-jupyter-notebook.outcome == 'success'
         env:
           NGC_API_Key: ${{ secrets.NGC_API_KEY }}
