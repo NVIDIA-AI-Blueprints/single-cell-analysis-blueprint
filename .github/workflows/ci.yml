@@ -210,6 +210,10 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/notebooks/
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /tmp/
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /tmp/app/
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend mkdir -p /home/rapids/app/
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/app/
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cp -rv /tmp/app/ /home/rapids/app/
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/app/
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             cd ~/app/
