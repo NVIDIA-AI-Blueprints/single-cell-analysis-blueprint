@@ -10,13 +10,14 @@ jobs:
         run: docker images -a
 
       - name: Cache Node.js Docker image
+        id: cache-node
         uses: actions/cache@v3
         with:
           path: /tmp/docker-cache
           key: node-18-image-${{ runner.os }}
 
       - name: Load cached Node.js image
-        if: cache-hit == 'true'
+        if: steps.cache-node.outputs.cache-hit == 'true'
         run: |
           if [ -f /tmp/docker-cache/node-18.tar ]; then
             docker load -i /tmp/docker-cache/node-18.tar
