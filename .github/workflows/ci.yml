@@ -26,7 +26,8 @@ jobs:
     runs-on: arc-runner-set-oke-org-poc
     # runs-on: arc-runner-set-oke-org-nv-ai-bp
     env:
-      DOCKER_IMG_NAME: "nvcr.io/nvidia/rapidsai/notebooks:25.06-cuda12.8-py3.12"
+      DOCKER_IMG_NAME: "nvcr.io/nvidia/rapidsai/notebooks"
+      DOCKER_IMG_TAG: "25.06-cuda12.8-py3.12"
       DOCKER_COMPOSE_FILE: "${{ github.workspace }}/docker/brev/docker-compose-nb-2504.yaml"
       DOCKER_CACHE_PATH: "/tmp/docker-pull-cache"
       NOTEBOOK_PATH: "./notebooks/01_scRNA_analysis_preprocessing.ipynb"
@@ -83,7 +84,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.DOCKER_CACHE_PATH }}
-          key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}-nb-cuda
+          key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_IMG_TAG)) }}-nb-cuda
           restore-keys: |
             ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}-
             ${{ runner.os }}-docker-
@@ -99,9 +100,9 @@ jobs:
       - name: Load docker image from cache or Pull it
         run: |
           start_time=$(date +%s)
-          echo "Docker image will use: $DOCKER_IMG_NAME"
+          echo "Docker image will use: $DOCKER_IMG_NAME:$DOCKER_IMG_TAG"
 
-          DOCKER_IMG_CACHE_NAME=$(echo "$DOCKER_IMG_NAME" | sed 's/[\/:@.]/_/g')
+          DOCKER_IMG_CACHE_NAME=$(echo "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" | sed 's/[\/:@.]/_/g')
 
           ### NOTE: it will save to the global ENV, BUT it won't efective in current step !!!
           ### so you still need to use ${***} in current step.
@@ -115,10 +116,10 @@ jobs:
             echo "[Info]: the docker image cache exists, just load it from cache --- Done"
           else
             echo "[Info]: the docker image cache does NOT exists, just pull it from remote"
-            if ! docker pull "$DOCKER_IMG_NAME"; then
+            if ! docker pull "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG"; then
               echo "Pull failed, retrying..." 
               sleep 10
-              docker pull --quiet "$DOCKER_IMG_NAME" || {
+              docker pull --quiet "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" || {
                 echo "Error: Docker pull failed after retry"
                 exit 1
               }
@@ -127,7 +128,7 @@ jobs:
             echo "[Info]: the docker image cache does NOT exists, just pull it from remote --- Done"
             mkdir -p ${DOCKER_CACHE_PATH}
             echo "[Info]: the docker image pull done, save it to cache path now"
-            docker save $DOCKER_IMG_NAME > ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
+            docker save $DOCKER_IMG_NAME:$DOCKER_IMG_TAG > ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
             ls -alh ${DOCKER_CACHE_PATH}
             echo "[Info]: the docker image pull done, save it to cache path now --- Done"
           fi
@@ -149,6 +150,9 @@ jobs:
           docker images -a
           echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
           
+          
+          DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
+          export DOCKER_IMG_TAG=$DOCKER_IMG_TAG
           # export HOST_PIP_CACHE_DIR="$HOME/.cache/pip"
           export NOTEBOOKS_HOST_PATH="${{ github.workspace }}/notebooks"
 

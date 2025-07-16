@@ -1,6 +1,6 @@
 services:
   backend:
-    image: nvcr.io/nvidia/rapidsai/notebooks:25.04-cuda12.8-py3.12
+    image: nvcr.io/nvidia/rapidsai/notebooks:${DOCKER_IMG_TAG:-25.04-cuda12.8-py3.12}
     pull_policy: always
     ulimits:
       memlock: -1
