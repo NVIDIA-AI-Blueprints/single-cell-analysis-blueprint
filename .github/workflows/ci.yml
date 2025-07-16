@@ -11,6 +11,10 @@ on:
         description: 'Deploy Environment'
         required: true
         default: 'staging'
+      debug_from_step:
+        description: 'Start from step (e.g. "load-docker")'
+        required: false
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -198,7 +202,9 @@ jobs:
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend whoami
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al ~/
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /tmp/
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             set -e
