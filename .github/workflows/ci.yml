@@ -68,24 +68,29 @@ jobs:
 
       - uses: ./.github/actions/check-sysinfo
 
-      - name: Cache Docker image
-        id: cache-docker-image
-        uses: actions/cache@v3
-        with:
-          path: ${{ env.DOCKER_CACHE_PATH }}
-          key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}-nb-cuda
-      
       - name: Ensure cache directory exists
         run: |
           mkdir -p ${{ env.DOCKER_CACHE_PATH }}
           sudo chown -R $(id -u):$(id -g) /tmp/docker-pull-cache
           ls -ld /tmp/docker-pull-cache
 
+      - name: Cache Docker image
+        id: cache-docker-image
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.DOCKER_CACHE_PATH }}
+          key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}-nb-cuda
+          restore-keys: |
+            ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}-
+            ${{ runner.os }}-docker-
+      
       - name: Debug info
         run: |
           echo "Primary Key: ${{ steps.cache-docker-image.outputs.cache-primary-key || 'N/A' }}"
           echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit || 'false' }}"
           echo "Cache Path: ${{ env.DOCKER_CACHE_PATH }}"
+          ls -la ${{ env.DOCKER_CACHE_PATH }}
+
 
       - name: Load docker image from cache or Pull it
         run: |
@@ -100,7 +105,7 @@ jobs:
           echo "Cache filename: ${DOCKER_IMG_CACHE_NAME}.tar"
 
           DOCKER_CACHE_PATH="${{ env.DOCKER_CACHE_PATH }}"
-          if [ -f "${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar" ]; then
+          if [[ "${{ steps.cache-docker-image.outputs.cache-hit }}" == 'true' ]] && [ -f "${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar" ]; then
             echo "[Info]: the docker image cache exists, just load it from cache"
             docker load -i ${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar
             echo "[Info]: the docker image cache exists, just load it from cache --- Done"
@@ -108,7 +113,7 @@ jobs:
             echo "[Info]: the docker image cache does NOT exists, just pull it from remote"
             if ! docker pull "$DOCKER_IMG_NAME"; then
               echo "Pull failed, retrying..." 
-              sleep 30
+              sleep 10
               docker pull --quiet "$DOCKER_IMG_NAME" || {
                 echo "Error: Docker pull failed after retry"
                 exit 1
@@ -191,6 +196,10 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python --version
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
 
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend whoami
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al
+
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             set -e
             # echo '=== Creating clean virtual environment ==='
@@ -203,7 +212,7 @@ jobs:
             # rm -rf /root/.cache/pip
 
             echo '=== Installing requirements ==='
-            pip install --no-cache-dir -r requirements.txt
+            pip install --no-cache-dir -r ~/requirements.txt
             pip install --no-cache-dir papermill
 
             echo '=== Verifying installations ==='
