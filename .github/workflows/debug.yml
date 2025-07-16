@@ -1,0 +1,34 @@
+name: Cache specific base images
+
+on: [push]
+
+jobs:
+  test-on-something:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check docker images
+        run: docker images -a
+
+      - name: Cache Node.js Docker image
+        uses: actions/cache@v3
+        with:
+          path: /tmp/docker-cache
+          key: node-18-image-${{ runner.os }}
+
+      - name: Load cached Node.js image
+        if: cache-hit == 'true'
+        run: |
+          if [ -f /tmp/docker-cache/node-18.tar ]; then
+            docker load -i /tmp/docker-cache/node-18.tar
+          fi
+
+      - name: Pull Node.js image
+        run: |
+          if ! docker image inspect node:18 >/dev/null 2>&1; then
+            docker pull node:18
+            mkdir -p /tmp/docker-cache
+            docker save -o /tmp/docker-cache/node-18.tar node:18
+          fi
+
+      - name: Check docker images
+        run: docker images -a
