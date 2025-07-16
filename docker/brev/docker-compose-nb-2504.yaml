@@ -21,19 +21,20 @@ services:
       - "0.0.0.0:8786:8786"      # Dask scheduler
     volumes:
       # - ${HOST_PIP_CACHE_DIR:-/home/runner/.cache/pip}:/home/rapids/.cache/pip
-      # need to write privilege, so we will copy the folder to $HOME in container via command
-      - ${NOTEBOOKS_HOST_PATH:-/home/runner/single-cell-analysis-blueprint/notebooks}:/tmp/app/notebooks
-      - ${NOTEBOOKS_HOST_PATH:-/home/runner/single-cell-analysis-blueprint/requirements.txt}:/tmp/app/requirements.txt
+      - ${NOTEBOOKS_HOST_PATH:-/home/runner/single-cell-analysis-blueprint/}:/tmp/app/
     user: rapids
     working_dir: /home/rapids
     entrypoint: []
-    command: sh -c "
+    command: >
+      sh -c "
       /home/rapids/entrypoint.sh &
-      sleep 2
-      ls -la /tmp/app && \
-      mkdir -p /home/rapids/app && \
-      rsync -avzP /tmp/app/ /home/rapids/app/ && \
-      python -m jupyter lab --allow-root --ip=0.0.0.0 --no-browser --NotebookApp.token='' --NotebookApp.password='' --notebook-dir=/home/rapids/app/notebooks"
+      sleep 2;
+      ls -la /tmp/app &&
+      mkdir -p /home/rapids/app &&
+      cp -r /tmp/app/ /home/rapids/ &&
+      python -m jupyter lab --allow-root --ip=0.0.0.0 --no-browser
+      --NotebookApp.token='' --NotebookApp.password=''
+      --notebook-dir=/home/rapids/app/notebooks"
     restart: unless-stopped
 
  

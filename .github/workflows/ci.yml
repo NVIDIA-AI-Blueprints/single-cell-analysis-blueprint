@@ -154,7 +154,7 @@ jobs:
           DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
           export DOCKER_IMG_TAG=$DOCKER_IMG_TAG
           # export HOST_PIP_CACHE_DIR="$HOME/.cache/pip"
-          export NOTEBOOKS_HOST_PATH="${{ github.workspace }}/notebooks"
+          export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
 
           set -e
           export COMPOSE_HTTP_TIMEOUT=300
@@ -167,14 +167,15 @@ jobs:
         if: ${{ failure() }}
         run: |
           docker ps -a
-          # docker logs -f brev-backend-1
           # docker system df
           # docker stats
           # docker logs brev_backend_1
           # docker compose -f "$DOCKER_COMPOSE_FILE" logs --tail=50
 
       - name: Check running containers
-        run: docker ps -a
+        run: |
+          docker ps -a
+          docker logs -f brev_backend_1
 
       - name: Debug Info
         run: |
@@ -213,7 +214,7 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /tmp/app/
           # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend mkdir -p /home/rapids/app/
           # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/app/
-          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cp -rv /tmp/app/ /home/rapids/
+          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cp -rv /tmp/app/ /home/rapids/app/
           # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/app/
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
