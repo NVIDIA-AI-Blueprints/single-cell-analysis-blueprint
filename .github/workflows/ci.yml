@@ -167,7 +167,7 @@ jobs:
         if: ${{ failure() }}
         run: |
           docker ps -a
-          docker logs -f brev-backend-1
+          # docker logs -f brev-backend-1
           # docker system df
           # docker stats
           # docker logs brev_backend_1
