@@ -27,7 +27,7 @@ services:
     user: rapids
     working_dir: /home/rapids
     entrypoint: ["/home/rapids/entrypoint.sh"]
-    command: sh -c "cp -r /tmp/app/ ~/app/ && python -m jupyter lab --allow-root --ip=0.0.0.0 --no-browser --NotebookApp.token='' --NotebookApp.password='' --notebook-dir=/home/rapids/app/notebooks"
+    command: sh -c "ls -la /tmp/app && cp -rv /tmp/app/ /home/rapids/app/ && python -m jupyter lab --allow-root --ip=0.0.0.0 --no-browser --NotebookApp.token='' --NotebookApp.password='' --notebook-dir=/home/rapids/app/notebooks"
     restart: unless-stopped
 
  
