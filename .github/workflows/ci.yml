@@ -40,6 +40,7 @@ jobs:
           echo "Cache filename: ${DOCKER_IMG_CACHE_NAME}.tar"
 
           echo "docker_img_cache_name=${DOCKER_IMG_CACHE_NAME}" >> $GITHUB_OUTPUT
+          echo "cache_key=${{ runner.os }}-docker-$DOCKER_IMG_CACHE_NAME" >> $GITHUB_OUTPUT
 
       - name: Checkout BP repository
         uses: actions/checkout@v4
@@ -93,7 +94,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.DOCKER_CACHE_PATH }}
-          key: ${{ runner.os }}-docker-${{ env.DOCKER_IMG_NAME }}-${{ env.DOCKER_IMG_TAG }}
+          key: "${{ steps.set_global_vars.outputs.cache_key }}"
           restore-keys: |
             ${{ runner.os }}-docker-
       
@@ -232,8 +233,6 @@ jobs:
           # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/app/
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
-            cd ~/app/
-
             set -e
             # echo '=== Creating clean virtual environment ==='
             # python -m venv $VENV_PATH --clear
@@ -259,10 +258,8 @@ jobs:
           "
 
           echo "=============== Executing notebook ====================="
-          OUTPUT_NOTEBOOK="~/app/result.ipynb"
+          OUTPUT_NOTEBOOK="~/result.ipynb"
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
-            cd ~/app/
-
             # source $VENV_PATH/bin/activate && \
             papermill '$NOTEBOOK_PATH' '$OUTPUT_NOTEBOOK' \
               --log-output \
@@ -282,7 +279,7 @@ jobs:
           NGC_API_Key: ${{ secrets.NGC_API_KEY }}
         run: |
           echo "Run jupyter notebook succeeded, running Convert result to HTML format"
-          OUTPUT_NOTEBOOK="~/app/result.ipynb"
+          OUTPUT_NOTEBOOK="~/result.ipynb"
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK"
           echo "===============show content of nb html====================="
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat ./result.html
