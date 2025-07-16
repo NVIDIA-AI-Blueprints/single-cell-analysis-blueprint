@@ -81,7 +81,7 @@ jobs:
 
       - name: Cache Docker image
         id: cache-docker-image
-        if: always()
+        if: ${{ always() }}
         uses: actions/cache@v3
         with:
           path: ${{ env.DOCKER_CACHE_PATH }}
@@ -156,6 +156,14 @@ jobs:
           export DOCKER_IMG_TAG=$DOCKER_IMG_TAG
           # export HOST_PIP_CACHE_DIR="$HOME/.cache/pip"
           export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
+
+          echo "DOCKER_IMG_TAG: $DOCKER_IMG_TAG"
+          echo "NOTEBOOKS_HOST_PATH: $NOTEBOOKS_HOST_PATH"
+          echo "Workspace path: $GITHUB_WORKSPACE"
+          echo "Workspace path: ${{ github.workspace }}"
+
+          pwd
+          ls -al ./
 
           set -e
           export COMPOSE_HTTP_TIMEOUT=300
