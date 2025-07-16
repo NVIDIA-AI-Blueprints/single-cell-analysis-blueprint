@@ -180,24 +180,17 @@ jobs:
 
           set -e
           export COMPOSE_HTTP_TIMEOUT=300
-          docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d --wait
+          docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d --wait --force-recreate
           
           end_time=$(date +%s)
           echo "Execution time: $((end_time - start_time)) seconds"
 
-      - name: Debug container logs
-        if: ${{ failure() }}
+      - name: Check containers status
         run: |
           docker ps -a
-          # docker system df
-          # docker stats
-          # docker logs brev_backend_1
-          # docker compose -f "$DOCKER_COMPOSE_FILE" logs --tail=50
-
-      - name: Check running containers
-        run: |
-          docker ps -a
-          docker logs -f brev_backend_1
+          docker inspect <container_name> | grep -A 10 ExitCode
+          docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
+          cat docker-logs.txt
 
       - name: Debug Info
         run: |
