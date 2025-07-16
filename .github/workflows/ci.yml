@@ -195,7 +195,6 @@ jobs:
 
       - name: Run Jupyter Notebook
         id: run-jupyter-notebook
-        continue-on-error: true
         timeout-minutes: 30
         env:
           NGC_API_Key: ${{ secrets.NGC_API_KEY }}
