@@ -84,9 +84,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.DOCKER_CACHE_PATH }}
-          key: ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_IMG_TAG)) }}-nb-cuda
+          key: ${{ runner.os }}-docker-${{ env.DOCKER_IMG_TAG }}-nb-cuda
           restore-keys: |
-            ${{ runner.os }}-docker-${{ hashFiles(format('{0}', env.DOCKER_COMPOSE_FILE)) }}-
+            ${{ runner.os }}-docker-${{ env.DOCKER_IMG_TAG }}-
             ${{ runner.os }}-docker-
       
       - name: Debug info
