@@ -81,6 +81,7 @@ jobs:
 
       - name: Cache Docker image
         id: cache-docker-image
+        if: always()
         uses: actions/cache@v3
         with:
           path: ${{ env.DOCKER_CACHE_PATH }}

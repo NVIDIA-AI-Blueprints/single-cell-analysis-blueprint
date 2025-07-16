@@ -29,12 +29,11 @@ services:
       sh -c "
       /home/rapids/entrypoint.sh &
       sleep 2;
-      ls -la /tmp/app &&
-      mkdir -p /home/rapids/app &&
-      cp -r /tmp/app/ /home/rapids/ &&
+      (ls -la /tmp/app || true) &&
+      (cp -r /tmp/app/* /home/rapids/ || true)  &&
       python -m jupyter lab --allow-root --ip=0.0.0.0 --no-browser
       --NotebookApp.token='' --NotebookApp.password=''
-      --notebook-dir=/home/rapids/app/notebooks"
+      --notebook-dir=/home/rapids/notebooks"
     restart: unless-stopped
 
  
