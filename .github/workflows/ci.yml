@@ -229,14 +229,21 @@ jobs:
 
           echo "=============Debug Info======================"
 
+      - name: Debug setup tmate for SSH access
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true 
+          timeout-minutes: 240
+          web-access: true  
+
       - name: Run Jupyter Notebook
         id: run-jupyter-notebook
         timeout-minutes: 30
-        env:
-          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-          NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
-          NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
-          VENV_PATH: "/opt/venv"
+        # env:
+        #   NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+        #   NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
+        #   NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
+        #   VENV_PATH: "/opt/venv"
         run: |
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python --version
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
@@ -259,18 +266,19 @@ jobs:
             # source $VENV_PATH/bin/activate
 
             # echo '=== Upgrading pip and cleaning old installations ==='
-            # python -m pip install --upgrade pip
+            python -m pip install --upgrade pip
             # pip cache purge
             # rm -rf /root/.cache/pip
 
             echo '=== Installing requirements ==='
-            # pip install --no-cache-dir -r ./requirements.txt
+            pip install --no-cache-dir -r ./requirements.txt
             # pip install --no-cache-dir papermill
-            conda install -y --file ./requirements.txt 
+            # conda install -y --file ./requirements.txt
+            pip install jupyter papermill
 
             echo '=== Verifying installations ==='
-            # pip list
-            conda list
+            pip list
+            # conda list
 
             # echo '=== Registering Jupyter kernel ==='
             # python -m ipykernel install --user --name python3 --display-name 'Python 3'
