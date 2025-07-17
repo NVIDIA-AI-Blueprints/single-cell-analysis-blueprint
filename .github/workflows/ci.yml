@@ -261,15 +261,18 @@ jobs:
 
           echo "=============== Executing notebook ====================="
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
-            # source $VENV_PATH/bin/activate && \
-            papermill '$NOTEBOOK_PATH' '$OUTPUT_NOTEBOOK' \
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash -c "
+            set -euxo pipefail
+            export PYTHONUNBUFFERED=1
+            papermill \"$NOTEBOOK_PATH\" \"$OUTPUT_NOTEBOOK\" \
               --log-output \
               --log-level DEBUG \
               --progress-bar \
               --report-mode \
-              --kernel python3 && \
-            cat '$OUTPUT_NOTEBOOK'
+              --kernel python3 2>&1 | tee /tmp/papermill.log
+            cat \"$OUTPUT_NOTEBOOK\"
+            echo '=== Papermill logs ==='
+            cat /tmp/papermill.log
           "
           echo "=============== Executing notebook --- Done ====================="
 
