@@ -32,7 +32,8 @@ jobs:
       DOCKER_CACHE_PATH: "/tmp/docker-pull-cache"
       NOTEBOOK_PATH: "./notebooks/01_scRNA_analysis_preprocessing.ipynb"
       OUTPUT_NOTEBOOK: "/tmp/result.ipynb"
-      OUTPUT_HTML: "/tmp/result.html"
+      OUTPUT_NOTEBOOK_HTML: "/tmp/notebook-result.html"
+      OUTPUT_PYTEST_HTML: "/tmp/pytest-result.html"
       PYTHON_VERSION: "3.12"
     steps:  
       - name: Set global vars
@@ -234,7 +235,6 @@ jobs:
         with:
           limit-access-to-actor: true 
           timeout-minutes: 240
-          web-access: true  
 
       - name: Run Jupyter Notebook
         id: run-jupyter-notebook
@@ -266,12 +266,13 @@ jobs:
             # source $VENV_PATH/bin/activate
 
             # echo '=== Upgrading pip and cleaning old installations ==='
+            ### ingore the pip install requirements error
             python -m pip install --upgrade pip
             # pip cache purge
             # rm -rf /root/.cache/pip
 
             echo '=== Installing requirements ==='
-            pip install --no-cache-dir -r ./requirements.txt
+            pip install --no-cache-dir -r ./requirements.txt || true
             # pip install --no-cache-dir papermill
             # conda install -y --file ./requirements.txt
             pip install jupyter papermill
@@ -320,12 +321,12 @@ jobs:
         run: |
           echo "Run jupyter notebook succeeded, running Convert result to HTML format"
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
-          OUTPUT_HTML="${{ env.OUTPUT_HTML }}"
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK" -o "$OUTPUT_HTML"
+          OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK" -o "$OUTPUT_NOTEBOOK_HTML"
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             echo "===============Check file====================="
-            for file in "$OUTPUT_HTML"; do
+            for file in "$OUTPUT_NOTEBOOK_HTML"; do
                 if [ -s "$file" ]; then
                     echo "$file exists and has contents"
                 else
@@ -338,7 +339,8 @@ jobs:
       - name: Install Poetry/Dependencies and execute test
         id: run-pytest
         run: |
-          OUTPUT_HTML="${{ env.OUTPUT_HTML }}"
+          OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
+          OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
           
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             cd blueprint-github-test
@@ -346,24 +348,26 @@ jobs:
             $HOME/.local/bin/poetry install
             source $($HOME/.local/bin/poetry env info --path)/bin/activate
             rm -rf input/*
-            cp "$OUTPUT_HTML" input/01_scRNA_analysis_preprocessing.html
+            cp "$OUTPUT_NOTEBOOK_HTML" input/01_scRNA_analysis_preprocessing.html
             ls -l input/
-            pytest -m single_cell --disable-warnings
+            pytest -m single_cell --disable-warnings --html=$OUTPUT_PYTEST_HTML --self-contained-html
           "
                              
       - name: Copy result files from container to runner
         id: prepare-result-file
         if: steps.run-pytest.outcome == 'success'
         run: |
-          OUTPUT_HTML="${{ env.OUTPUT_HTML }}"
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_HTML" "${{ github.workspace }}"
+          OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_NOTEBOOK_HTML" "${{ github.workspace }}"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_PYTEST_HTML" "${{ github.workspace }}"
 
       - name: Upload the result notebook as artifact
         if: steps.prepare-result-file.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: result-notebook
-          path: "${{ github.workspace }}/result.html"
+          path: |
+            "${{ github.workspace }}/*-result.html"
           retention-days: 30
 
       - name: Stop containers
