@@ -49,14 +49,16 @@ jobs:
 
       - name: Verify Token Access
         run: |
-          curl -H "Authorization: token ${{ secrets.BLUEPRINT_GITHUB_TEST }}" \
+          curl -H "Authorization: token ${{ secrets.JOHNNY_DEV_GH_TOKEN }}" \
           https://api.github.com/repos/NVIDIA-AI-Blueprints/blueprint-github-test
 
       - name: Checkout Test repository
         uses: actions/checkout@v4
         with:
           repository: 'NVIDIA-AI-Blueprints/blueprint-github-test'
-          token: ${{ secrets.BLUEPRINT_GITHUB_TEST }}
+          token: ${{ secrets.JOHNNY_DEV_GH_TOKEN }}
+          ### Have no ideas why BLUEPRINT_GITHUB_TEST does not work here
+          # token: ${{ secrets.BLUEPRINT_GITHUB_TEST }}
           path: blueprint-github-test
           fetch-depth: 1
         
