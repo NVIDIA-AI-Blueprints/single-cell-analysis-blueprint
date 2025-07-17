@@ -12,6 +12,7 @@ jobs:
 
       - name: Cache Node.js Docker image
         id: cache-node
+        if: always()
         uses: actions/cache@v3
         with:
           path: /tmp/docker-cache
