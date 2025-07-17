@@ -334,7 +334,7 @@ jobs:
             cd blueprint-github-test
             curl -sSL https://install.python-poetry.org | python3 -          
             /home/rapids/.local/bin/poetry install
-            source $(/home/rapids/.local/bin/poetry env info --path)/bin/activate
+            source "$(/home/rapids/.local/bin/poetry env info --path)/bin/activate"
             rm -rf input/*
             cp "$OUTPUT_NOTEBOOK_HTML" input/01_scRNA_analysis_preprocessing.html
             ls -l input/
