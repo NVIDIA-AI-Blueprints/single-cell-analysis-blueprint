@@ -161,134 +161,134 @@ jobs:
           DOCKER_CACHE_PATH="${{ env.DOCKER_CACHE_PATH }}"
           du -sh ${DOCKER_CACHE_PATH}/*
 
-      # - name: Start container
-      #   run: |
-      #     start_time=$(date +%s)
-      #     docker images -a
-      #     echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
+      - name: Start container
+        run: |
+          start_time=$(date +%s)
+          docker images -a
+          echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
           
           
-      #     DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
-      #     export DOCKER_IMG_TAG=$DOCKER_IMG_TAG
-      #     # export HOST_PIP_CACHE_DIR="$HOME/.cache/pip"
-      #     export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
+          DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
+          export DOCKER_IMG_TAG=$DOCKER_IMG_TAG
+          # export HOST_PIP_CACHE_DIR="$HOME/.cache/pip"
+          export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
 
-      #     echo "DOCKER_IMG_TAG: $DOCKER_IMG_TAG"
-      #     echo "NOTEBOOKS_HOST_PATH: $NOTEBOOKS_HOST_PATH"
-      #     echo "Workspace path: $GITHUB_WORKSPACE"
-      #     echo "Workspace path: ${{ github.workspace }}"
+          echo "DOCKER_IMG_TAG: $DOCKER_IMG_TAG"
+          echo "NOTEBOOKS_HOST_PATH: $NOTEBOOKS_HOST_PATH"
+          echo "Workspace path: $GITHUB_WORKSPACE"
+          echo "Workspace path: ${{ github.workspace }}"
 
-      #     pwd
-      #     ls -al ./
+          pwd
+          ls -al ./
 
-      #     set -e
-      #     export COMPOSE_HTTP_TIMEOUT=300
-      #     docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d --wait --force-recreate
+          set -e
+          export COMPOSE_HTTP_TIMEOUT=300
+          docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d --wait --force-recreate
           
-      #     end_time=$(date +%s)
-      #     echo "Execution time: $((end_time - start_time)) seconds"
+          end_time=$(date +%s)
+          echo "Execution time: $((end_time - start_time)) seconds"
 
-      # - name: Check containers status
-      #   run: |
-      #     docker ps -a
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
-      #     cat docker-logs.txt
+      - name: Check containers status
+        run: |
+          docker ps -a
+          docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
+          cat docker-logs.txt
 
-      # - name: Debug Info
-      #   run: |
-      #     echo "=============Debug Info======================"
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" config --services
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend whoami
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al .
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend find . -maxdepth 2 | sed -e 's|[^/]*/|- |g' -e 's|^\./||'
+      - name: Debug Info
+        run: |
+          echo "=============Debug Info======================"
+          docker compose -f "$DOCKER_COMPOSE_FILE" config --services
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend whoami
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al .
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend find . -maxdepth 2 | sed -e 's|[^/]*/|- |g' -e 's|^\./||'
 
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat /home/rapids/entrypoint.sh
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip list
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend df -lh
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat /home/rapids/entrypoint.sh
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip list
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend df -lh
 
-      #     echo "=============Debug Info======================"
+          echo "=============Debug Info======================"
 
-      # - name: Run Jupyter Notebook
-      #   id: run-jupyter-notebook
-      #   timeout-minutes: 30
-      #   env:
-      #     NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-      #     NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
-      #     NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
-      #     VENV_PATH: "/opt/venv"
-      #   run: |
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python --version
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
+      - name: Run Jupyter Notebook
+        id: run-jupyter-notebook
+        timeout-minutes: 30
+        env:
+          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
+          NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
+          VENV_PATH: "/opt/venv"
+        run: |
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python --version
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
 
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend whoami
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/notebooks/
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /tmp/
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /tmp/app/
-      #     # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend mkdir -p /home/rapids/app/
-      #     # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/app/
-      #     # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cp -rv /tmp/app/ /home/rapids/app/
-      #     # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/app/
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend whoami
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/notebooks/
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /tmp/
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /tmp/app/
+          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend mkdir -p /home/rapids/app/
+          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/app/
+          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cp -rv /tmp/app/ /home/rapids/app/
+          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/app/
 
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
-      #       set -e
-      #       # echo '=== Creating clean virtual environment ==='
-      #       # python -m venv $VENV_PATH --clear
-      #       # source $VENV_PATH/bin/activate
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
+            set -e
+            # echo '=== Creating clean virtual environment ==='
+            # python -m venv $VENV_PATH --clear
+            # source $VENV_PATH/bin/activate
 
-      #       echo '=== Upgrading pip and cleaning old installations ==='
-      #       python -m pip install --upgrade pip
-      #       # pip cache purge
-      #       # rm -rf /root/.cache/pip
+            echo '=== Upgrading pip and cleaning old installations ==='
+            python -m pip install --upgrade pip
+            # pip cache purge
+            # rm -rf /root/.cache/pip
 
-      #       echo '=== Installing requirements ==='
-      #       pip install --no-cache-dir -r ./requirements.txt
-      #       pip install --no-cache-dir papermill
+            echo '=== Installing requirements ==='
+            pip install --no-cache-dir -r ./requirements.txt
+            pip install --no-cache-dir papermill
 
-      #       echo '=== Verifying installations ==='
-      #       pip list
+            echo '=== Verifying installations ==='
+            pip list
 
-      #       # echo '=== Registering Jupyter kernel ==='
-      #       # python -m ipykernel install --user --name python3 --display-name 'Python 3'
+            # echo '=== Registering Jupyter kernel ==='
+            # python -m ipykernel install --user --name python3 --display-name 'Python 3'
       
-      #       echo '=== Verifying kernel ==='
-      #       jupyter kernelspec list
-      #     "
+            echo '=== Verifying kernel ==='
+            jupyter kernelspec list
+          "
 
-      #     echo "=============== Executing notebook ====================="
-      #     OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash -c "
-      #       set -euxo pipefail
-      #       export PYTHONUNBUFFERED=1
-      #       papermill \"$NOTEBOOK_PATH\" \"$OUTPUT_NOTEBOOK\" \
-      #         --log-output \
-      #         --log-level DEBUG \
-      #         --progress-bar \
-      #         --report-mode \
-      #         --kernel python3 2>&1 | tee /tmp/papermill.log
-      #       cat \"$OUTPUT_NOTEBOOK\"
-      #       echo '=== Papermill logs ==='
-      #       cat /tmp/papermill.log
-      #     "
-      #     echo "=============== Executing notebook --- Done ====================="
+          echo "=============== Executing notebook ====================="
+          OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash -c "
+            set -euxo pipefail
+            export PYTHONUNBUFFERED=1
+            papermill \"$NOTEBOOK_PATH\" \"$OUTPUT_NOTEBOOK\" \
+              --log-output \
+              --log-level DEBUG \
+              --progress-bar \
+              --report-mode \
+              --kernel python3 2>&1 | tee /tmp/papermill.log
+            cat \"$OUTPUT_NOTEBOOK\"
+            echo '=== Papermill logs ==='
+            cat /tmp/papermill.log
+          "
+          echo "=============== Executing notebook --- Done ====================="
 
           
-      # - name: Convert result to html format
-      #   if: steps.run-jupyter-notebook.outcome == 'success'
-      #   env:
-      #     NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-      #   run: |
-      #     echo "Run jupyter notebook succeeded, running Convert result to HTML format"
-      #     OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
-      #     OUTPUT_HTML="${{ env.OUTPUT_HTML }}"
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK" -o "$OUTPUT_HTML"
-      #     echo "===============show content of nb html====================="
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "$OUTPUT_HTML"
-      #     echo "===============show content of nb html====================="
+      - name: Convert result to html format
+        if: steps.run-jupyter-notebook.outcome == 'success'
+        env:
+          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+        run: |
+          echo "Run jupyter notebook succeeded, running Convert result to HTML format"
+          OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
+          OUTPUT_HTML="${{ env.OUTPUT_HTML }}"
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK" -o "$OUTPUT_HTML"
+          echo "===============show content of nb html====================="
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "$OUTPUT_HTML"
+          echo "===============show content of nb html====================="
 
       # - name: Checkout Test repository
       #   uses: actions/checkout@v4
@@ -316,9 +316,9 @@ jobs:
       #     path: "result.html"
       #     retention-days: 30
 
-      # - name: Stop containers
-      #   if: ${{ always() }}
-      #   run: docker compose -f "$DOCKER_COMPOSE_FILE" down
+      - name: Stop containers
+        if: ${{ always() }}
+        run: docker compose -f "$DOCKER_COMPOSE_FILE" down
 
       - name: Clean up
         if: always()
@@ -341,7 +341,7 @@ jobs:
               -H "Accept: application/vnd.github.v3+json" \
               "https://api.github.com/repos/${{ github.repository }}/actions/caches?key=${{ runner.os }}-docker-")
 
-            if echo "$response" | grep -q "node-18-image"; then
+            if echo "$response" | grep -q "${{ runner.os }}-docker-"; then
               echo "$response" | jq .
               exit 0
             else
