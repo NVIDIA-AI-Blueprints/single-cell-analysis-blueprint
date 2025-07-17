@@ -254,7 +254,7 @@ jobs:
               echo "Attempt #$i to install dependencies from: $REQUIREMENTS_FILE..."
 
               # Execute pip install and check exit status directly
-              if pip install -user --no-cache-dir -r "$REQUIREMENTS_FILE"; then
+              if pip install --user --no-cache-dir -r "$REQUIREMENTS_FILE"; then
                   echo "Dependencies installed successfully!"
                   break
               else
@@ -310,17 +310,15 @@ jobs:
           echo "Run jupyter notebook succeeded, running Convert result to HTML format"
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
           OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK" -o "$OUTPUT_NOTEBOOK_HTML"
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK" -o "$OUTPUT_NOTEBOOK_HTML" 2>&1 | tee /tmp/jupyter_nbconvert.log
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             echo "===============Check file====================="
-            for file in "$OUTPUT_NOTEBOOK_HTML"; do
-                if [ -s "$file" ]; then
-                    echo "$file exists and has contents"
-                else
-                    echo "$file does NOT exist or has NO contents"
-                fi
-            done
+            if [ -s "$OUTPUT_NOTEBOOK_HTML" ]; then
+                echo "$OUTPUT_NOTEBOOK_HTML exists and has contents"
+            else
+                echo "$OUTPUT_NOTEBOOK_HTML does NOT exist or has NO contents"
+            fi
             echo "===============Check file====================="
           "
           
@@ -333,8 +331,18 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             cd blueprint-github-test
             curl -sSL https://install.python-poetry.org | python3 -          
+
             /home/rapids/.local/bin/poetry install
-            source "$(/home/rapids/.local/bin/poetry env info --path)/bin/activate"
+            
+            POETRY_PATH="/home/rapids/.local/bin/poetry"
+            VENV_PATH="$($POETRY_PATH env info --path)/bin/activate"
+            if [ -f "$VENV_PATH" ]; then
+                source "$VENV_PATH"
+            else
+                echo "Error: Virtualenv not found at $VENV_PATH"
+                exit 1
+            fi
+
             rm -rf input/*
             cp "$OUTPUT_NOTEBOOK_HTML" input/01_scRNA_analysis_preprocessing.html
             ls -l input/
