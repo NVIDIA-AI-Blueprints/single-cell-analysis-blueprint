@@ -266,7 +266,7 @@ jobs:
             echo '=== Installing requirements ==='
             # pip install --no-cache-dir -r ./requirements.txt
             # pip install --no-cache-dir papermill
-            conda install -y --file ./requirements_conda.txt 
+            conda install -y --file ./requirements.txt 
 
             echo '=== Verifying installations ==='
             # pip list
