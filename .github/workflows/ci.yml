@@ -270,7 +270,17 @@ jobs:
               --progress-bar \
               --report-mode \
               --kernel python3 2>&1 | tee /tmp/papermill.log
-            cat \"$OUTPUT_NOTEBOOK\"
+
+            echo "===============Check file====================="
+            for file in "$OUTPUT_NOTEBOOK"; do
+                if [ -s "$file" ]; then
+                    echo "$file exists and has contents"
+                else
+                    echo "$file does NOT exist or has NO contents"
+                fi
+            done
+            echo "===============Check file====================="
+
             echo '=== Papermill logs ==='
             cat /tmp/papermill.log
           "
@@ -286,9 +296,18 @@ jobs:
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
           OUTPUT_HTML="${{ env.OUTPUT_HTML }}"
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK" -o "$OUTPUT_HTML"
-          echo "===============show content of nb html====================="
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "$OUTPUT_HTML"
-          echo "===============show content of nb html====================="
+
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
+            echo "===============Check file====================="
+            for file in "$OUTPUT_HTML"; do
+                if [ -s "$file" ]; then
+                    echo "$file exists and has contents"
+                else
+                    echo "$file does NOT exist or has NO contents"
+                fi
+            done
+            echo "===============Check file====================="
+          "
 
       # - name: Checkout Test repository
       #   uses: actions/checkout@v4
