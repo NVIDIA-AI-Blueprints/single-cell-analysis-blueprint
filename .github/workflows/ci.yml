@@ -313,6 +313,9 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK" -o "$OUTPUT_NOTEBOOK_HTML" 2>&1 | tee /tmp/jupyter_nbconvert.log
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
+            echo '===jupyter_nbconvert  logs ==='
+            cat /tmp/jupyter_nbconvert.log
+
             echo "===============Check file====================="
             if [ -s "$OUTPUT_NOTEBOOK_HTML" ]; then
                 echo "$OUTPUT_NOTEBOOK_HTML exists and has contents"
