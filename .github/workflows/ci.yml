@@ -240,73 +240,66 @@ jobs:
         #   NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
         #   VENV_PATH: "/opt/venv"
         run: |
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
-            set -e
-            # echo '=== Upgrading pip and cleaning old installations ==='
-            ### ingore the pip install requirements error
-            python -m pip install --upgrade pip || true
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash <<'EOF'
+          set -euxo pipefail
 
-            echo '=== Installing requirements ==='
-            MAX_RETRIES=3
-            RETRY_DELAY=5
-            REQUIREMENTS_FILE="requirements.txt"
+          python -m pip install --upgrade pip --user || true
 
-            # Attempt installation multiple times until success or max retries reached
-            for ((i=1; i<=$MAX_RETRIES; i++)); do
-                echo "Attempt #$i to install dependencies from: $REQUIREMENTS_FILE..."
+          echo '=== Installing requirements ==='
+          MAX_RETRIES=3
+          RETRY_DELAY=5
+          REQUIREMENTS_FILE="requirements.txt"
 
-                # Execute pip install and check exit status directly
-                if pip install -r "$REQUIREMENTS_FILE"; then
-                    echo "Dependencies installed successfully!"
-                    break  # Exit loop on success
-                else
-                    echo "Dependency installation failed (exit code: $?)."
-                    if [ "$i" -lt "$MAX_RETRIES" ]; then
-                        echo "Retrying in $RETRY_DELAY seconds..."
-                        sleep "$RETRY_DELAY"
-                    else
-                        echo "Maximum retry attempts ($MAX_RETRIES) reached. Proceeding with subsequent commands."
-                    fi
-                fi
-            done         
+          for ((i=1; i<=MAX_RETRIES; i++)); do
+              echo "Attempt #$i to install dependencies from: $REQUIREMENTS_FILE..."
 
-            pip install jupyter papermill
+              # Execute pip install and check exit status directly
+              if pip install -user --no-cache-dir -r "$REQUIREMENTS_FILE"; then
+                  echo "Dependencies installed successfully!"
+                  break
+              else
+                  echo "Dependency installation failed (exit code: $?)."
+                  if [ "$i" -lt "$MAX_RETRIES" ]; then
+                      echo "Retrying in $RETRY_DELAY seconds..."
+                      sleep "$RETRY_DELAY"
+                  else
+                      echo "Maximum retry attempts ($MAX_RETRIES) reached. Proceeding with subsequent commands."
+                  fi
+              fi
+          done         
 
-            echo '=== Verifying installations ==='
-            pip list
+          pip install jupyter papermill
 
-            # echo '=== Registering Jupyter kernel ==='
-            # python -m ipykernel install --user --name python3 --display-name 'Python 3'
-      
-            echo '=== Verifying kernel ==='
-            jupyter kernelspec list
-          "
+          echo '=== Verifying installations ==='
+          pip list
+
+          echo '=== Verifying kernel ==='
+          jupyter kernelspec list
+          EOF
 
           echo "=============== Executing notebook ====================="
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash -c "
-            set -euxo pipefail
-            export PYTHONUNBUFFERED=1
-            papermill \"$NOTEBOOK_PATH\" \"$OUTPUT_NOTEBOOK\" \
-              --log-output \
-              --log-level DEBUG \
-              --progress-bar \
-              --report-mode \
-              --kernel python3 2>&1 | tee /tmp/papermill.log
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
+          set -euxo pipefail
+          export PYTHONUNBUFFERED=1
+          papermill "$NOTEBOOK_PATH" "$OUTPUT_NOTEBOOK" \
+            --log-output \
+            --log-level DEBUG \
+            --progress-bar \
+            --report-mode \
+            --kernel python3 2>&1 | tee /tmp/papermill.log
 
-            echo "===============Check file====================="
-            for file in "$OUTPUT_NOTEBOOK"; do
-                if [ -s "$file" ]; then
-                    echo "$file exists and has contents"
-                else
-                    echo "$file does NOT exist or has NO contents"
-                fi
-            done
-            echo "===============Check file====================="
+          echo "===============Check file====================="
+          if [ -s "$OUTPUT_NOTEBOOK" ]; then
+              echo "$OUTPUT_NOTEBOOK exists and has contents"
+          else
+              echo "$OUTPUT_NOTEBOOK does NOT exist or has NO contents"
+          fi
+          echo "===============Check file====================="
 
-            echo '=== Papermill logs ==='
-            cat /tmp/papermill.log
-          "
+          echo '=== Papermill logs ==='
+          cat /tmp/papermill.log
+          EOF
           echo "=============== Executing notebook --- Done ====================="
 
           
