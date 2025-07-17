@@ -344,13 +344,14 @@ jobs:
           "
                              
       - name: Copy result files from container to runner
+        id: prepare-result-file
         if: steps.run-pytest.outcome == 'success'
         run: |
           OUTPUT_HTML="${{ env.OUTPUT_HTML }}"
           docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_HTML" "${{ github.workspace }}"
 
       - name: Upload the result notebook as artifact
-        if: always()
+        if: steps.prepare-result-file.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: result-notebook
