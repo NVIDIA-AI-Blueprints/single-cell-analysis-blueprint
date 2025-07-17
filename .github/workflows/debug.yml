@@ -33,13 +33,14 @@ jobs:
       
       - name: List all caches (via GitHub API)
         env:
-          GITHUB_TOKEN: ${{ secrets.BLUEPRINT_GITHUB_TEST }}
+          GITHUB_TOKEN: ${{ secrets.JOHNNY_DEV_GH_TOKEN }}
         run: |
           sleep 5
           curl -s \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/caches?key=node-18-image"
+            "https://api.github.com/repos/${{ github.repository }}/actions/caches"
+            # "https://api.github.com/repos/${{ github.repository }}/actions/caches?key=node-18-image"
 
       - name: Check docker images
         run: docker images -a
