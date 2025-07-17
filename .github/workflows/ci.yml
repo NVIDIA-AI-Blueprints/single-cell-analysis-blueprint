@@ -114,7 +114,7 @@ jobs:
           DOCKER_IMG_CACHE_NAME="${{ steps.set_global_vars.outputs.docker_img_cache_name }}"
           echo "Cached file with path: $DOCKER_CACHE_PATH/$DOCKER_IMG_CACHE_NAME"
 
-          if [ -f "${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar"]; then
+          if [ -f "${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}.tar" ]; then
             echo "[Info]: the docker image cache exists, just load it from cache"
             docker load -i "${DOCKER_CACHE_PATH}/${DOCKER_IMG_CACHE_NAME}".tar
             echo "[Info]: the docker image cache exists, just load it from cache --- Done"
@@ -130,20 +130,23 @@ jobs:
           DOCKER_IMG_CACHE_NAME="${{ steps.set_global_vars.outputs.docker_img_cache_name }}"
 
           echo "Docker image will use: $DOCKER_IMG_NAME:$DOCKER_IMG_TAG"
-          
-          if ! docker image inspect $DOCKER_IMG_NAME:$DOCKER_IMG_TAG >/dev/null 2>&1; then
-            echo "[Info]: the docker image cache does NOT exists, just pull it from remote"
-            if ! docker pull "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG"; then
-              echo "Pull failed, retrying..." 
-              sleep 10
-              docker pull --quiet "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" || {
-                echo "Error: Docker pull failed after retry"
-                exit 1
-              }
-            fi
-          fi
 
+          if docker image inspect "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" >/dev/null 2>&1; then
+            echo "[Info] Image already exists, skipping pull."
+            exit 0
+          fi
+          
+          echo "[Info]: the docker image cache does NOT exists, just pull it from remote"
+          if ! docker pull "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG"; then
+            echo "Pull failed, retrying..." 
+            sleep 10
+            docker pull --quiet "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" || {
+              echo "Error: Docker pull failed after retry"
+              exit 1
+            }
+          fi
           echo "[Info]: the docker image cache does NOT exists, just pull it from remote --- Done"
+
           
           mkdir -p ${DOCKER_CACHE_PATH}
           echo "[Info]: the docker image pull done, save it to cache path now"
