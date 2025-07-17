@@ -5,7 +5,7 @@ on: [push]
 jobs:
   test-on-something:
     runs-on: ubuntu-latest
-    environment: johnny_dev_env
+    # environment: johnny_dev_env
     steps:
       - name: Check docker images
         run: docker images -a
@@ -34,8 +34,8 @@ jobs:
       
       - name: List all caches (via GitHub API)
         env:
-          GITHUB_TOKEN: ${{ secrets.JOHNNY_DEV_GH_TOKEN }}
-          # GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+          # GITHUB_TOKEN: ${{ secrets.JOHNNY_DEV_GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         run: |
           sleep 5
           curl -s \
