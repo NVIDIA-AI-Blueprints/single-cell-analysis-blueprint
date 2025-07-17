@@ -94,7 +94,6 @@ jobs:
 
       - name: Cache Docker image
         id: cache-docker-image
-        if: ${{ always() }}
         uses: actions/cache@v3
         with:
           path: ${{ env.DOCKER_CACHE_PATH }}
@@ -326,8 +325,6 @@ jobs:
         if: always()
         run: |
           docker system prune -f
-          sudo rm -rf "${{ env.DOCKER_CACHE_PATH }}"
-          
           
   query-cache:
     needs: run-notebook
@@ -340,4 +337,4 @@ jobs:
           curl -s \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/caches?key=node-18-image"
+            "https://api.github.com/repos/${{ github.repository }}/actions/caches?key=${{ runner.os }}-docker-"
