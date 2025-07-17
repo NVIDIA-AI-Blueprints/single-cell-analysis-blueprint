@@ -304,6 +304,7 @@ jobs:
 
           
       - name: Convert result to html format
+        id: generate-notebook-html
         if: steps.run-jupyter-notebook.outcome == 'success'
         run: |
           echo "Run jupyter notebook succeeded, running Convert result to HTML format"
@@ -324,7 +325,7 @@ jobs:
           "
           
       - name: Install Poetry/Dependencies and execute test
-        id: run-pytest
+        id: generate-pytest-html
         run: |
           OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
           OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
@@ -332,8 +333,8 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             cd blueprint-github-test
             curl -sSL https://install.python-poetry.org | python3 -          
-            $HOME/.local/bin/poetry install
-            source $($HOME/.local/bin/poetry env info --path)/bin/activate
+            /home/rapids/.local/bin/poetry install
+            source $(/home/rapids/.local/bin/poetry env info --path)/bin/activate
             rm -rf input/*
             cp "$OUTPUT_NOTEBOOK_HTML" input/01_scRNA_analysis_preprocessing.html
             ls -l input/
@@ -342,7 +343,9 @@ jobs:
                              
       - name: Copy result files from container to runner
         id: prepare-result-file
-        if: steps.run-pytest.outcome == 'success'
+        if: >
+          steps.generate-notebook-html.outcome == 'success' &&
+          steps.generate-pytest-html.outcome == 'success'
         run: |
           OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
           docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_NOTEBOOK_HTML" "${{ github.workspace }}"
