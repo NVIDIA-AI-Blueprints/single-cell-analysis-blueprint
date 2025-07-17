@@ -230,11 +230,11 @@ jobs:
 
           echo "=============Debug Info======================"
 
-      - name: Debug setup tmate for SSH access
-        uses: mxschmitt/action-tmate@v3
-        with:
-          limit-access-to-actor: true 
-          timeout-minutes: 240
+      # - name: Debug setup tmate for SSH access
+      #   uses: mxschmitt/action-tmate@v3
+      #   with:
+      #     limit-access-to-actor: true 
+      #     timeout-minutes: 240
 
       - name: Run Jupyter Notebook
         id: run-jupyter-notebook
