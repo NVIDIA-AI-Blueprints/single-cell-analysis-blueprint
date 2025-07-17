@@ -50,8 +50,20 @@ jobs:
 
       - name: Verify Token Access
         run: |
-          curl -H "Authorization: token ${{ secrets.JOHNNY_DEV_GH_TOKEN }}" \
-          https://api.github.com/repos/NVIDIA-AI-Blueprints/blueprint-github-test
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.JOHNNY_DEV_GH_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/NVIDIA-AI-Blueprints/blueprint-github-test")
+
+          if [ "$RESPONSE" = "200" ]; then
+            echo "✓ Repository accessible"
+          elif [ "$RESPONSE" = "404" ]; then
+            echo "✗ Repository not found (check name/visibility)"
+            exit 1
+          else
+            echo "✗ Unexpected response: $RESPONSE"
+            exit 1
+          fi
 
       - name: Checkout Test repository
         uses: actions/checkout@v4
@@ -213,23 +225,6 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
           cat docker-logs.txt
 
-      - name: Debug Info
-        run: |
-          echo "=============Debug Info======================"
-          docker compose -f "$DOCKER_COMPOSE_FILE" config --services
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend whoami
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al .
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend find . -maxdepth 2 | sed -e 's|[^/]*/|- |g' -e 's|^\./||'
-
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat /home/rapids/entrypoint.sh
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pip list
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend df -lh
-
-          echo "=============Debug Info======================"
-
       # - name: Debug setup tmate for SSH access
       #   uses: mxschmitt/action-tmate@v3
       #   with:
@@ -245,41 +240,40 @@ jobs:
         #   NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
         #   VENV_PATH: "/opt/venv"
         run: |
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python --version
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend python3 --version
-
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend whoami
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend pwd
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/notebooks/
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /tmp/
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /tmp/app/
-          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend mkdir -p /home/rapids/app/
-          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/app/
-          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cp -rv /tmp/app/ /home/rapids/app/
-          # docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend ls -al /home/rapids/app/
-
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             set -e
-            # echo '=== Creating clean virtual environment ==='
-            # python -m venv $VENV_PATH --clear
-            # source $VENV_PATH/bin/activate
-
             # echo '=== Upgrading pip and cleaning old installations ==='
             ### ingore the pip install requirements error
-            python -m pip install --upgrade pip
-            # pip cache purge
-            # rm -rf /root/.cache/pip
+            python -m pip install --upgrade pip || true
 
             echo '=== Installing requirements ==='
-            pip install --no-cache-dir -r ./requirements.txt || true
-            # pip install --no-cache-dir papermill
-            # conda install -y --file ./requirements.txt
+            MAX_RETRIES=3
+            RETRY_DELAY=5
+            REQUIREMENTS_FILE="requirements.txt"
+
+            # Attempt installation multiple times until success or max retries reached
+            for ((i=1; i<=$MAX_RETRIES; i++)); do
+                echo "Attempt #$i to install dependencies from: $REQUIREMENTS_FILE..."
+
+                # Execute pip install and check exit status directly
+                if pip install -r "$REQUIREMENTS_FILE"; then
+                    echo "Dependencies installed successfully!"
+                    break  # Exit loop on success
+                else
+                    echo "Dependency installation failed (exit code: $?)."
+                    if [ "$i" -lt "$MAX_RETRIES" ]; then
+                        echo "Retrying in $RETRY_DELAY seconds..."
+                        sleep "$RETRY_DELAY"
+                    else
+                        echo "Maximum retry attempts ($MAX_RETRIES) reached. Proceeding with subsequent commands."
+                    fi
+                fi
+            done         
+
             pip install jupyter papermill
 
             echo '=== Verifying installations ==='
             pip list
-            # conda list
 
             # echo '=== Registering Jupyter kernel ==='
             # python -m ipykernel install --user --name python3 --display-name 'Python 3'
