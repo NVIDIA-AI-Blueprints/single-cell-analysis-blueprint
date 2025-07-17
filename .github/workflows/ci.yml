@@ -46,6 +46,13 @@ jobs:
 
       - name: Checkout BP repository
         uses: actions/checkout@v4
+
+      - name: Checkout Test repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'NVIDIA-AI-Blueprints/blueprint-github-test'
+          token: ${{ secrets.BLUEPRINT_GITHUB_TEST }}
+          path: blueprint-github-test
         
       - run: |
           echo "repo path is: ${{ github.workspace }}"
@@ -243,17 +250,19 @@ jobs:
             # python -m venv $VENV_PATH --clear
             # source $VENV_PATH/bin/activate
 
-            echo '=== Upgrading pip and cleaning old installations ==='
-            python -m pip install --upgrade pip
+            # echo '=== Upgrading pip and cleaning old installations ==='
+            # python -m pip install --upgrade pip
             # pip cache purge
             # rm -rf /root/.cache/pip
 
             echo '=== Installing requirements ==='
-            pip install --no-cache-dir -r ./requirements.txt
-            pip install --no-cache-dir papermill
+            # pip install --no-cache-dir -r ./requirements.txt
+            # pip install --no-cache-dir papermill
+            conda install -y --file ./requirements_conda.txt 
 
             echo '=== Verifying installations ==='
-            pip list
+            # pip list
+            conda list
 
             # echo '=== Registering Jupyter kernel ==='
             # python -m ipykernel install --user --name python3 --display-name 'Python 3'
@@ -292,8 +301,6 @@ jobs:
           
       - name: Convert result to html format
         if: steps.run-jupyter-notebook.outcome == 'success'
-        env:
-          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
         run: |
           echo "Run jupyter notebook succeeded, running Convert result to HTML format"
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
@@ -311,32 +318,36 @@ jobs:
             done
             echo "===============Check file====================="
           "
-
-      # - name: Checkout Test repository
-      #   uses: actions/checkout@v4
-      #   with:
-      #     repository: 'NVIDIA-AI-Blueprints/blueprint-github-test'
-      #     token: ${{ secrets.BLUEPRINT_GITHUB_TEST }}
-      #     path: blueprint-github-test-tmp
           
-      # - name: Install Poetry/Dependencies and execute test
-      #   run: |
-      #     cd blueprint-github-test-tmp
-      #     curl -sSL https://install.python-poetry.org | python3 -          
-      #     $HOME/.local/bin/poetry install
-      #     source $($HOME/.local/bin/poetry env info --path)/bin/activate
-      #     rm -rf input/*
-      #     cp ../result.html input/1_Deploy_LLM_Router.html
-      #     ls -l input/
-      #     pytest -m llm_router --disable-warnings
+      - name: Install Poetry/Dependencies and execute test
+        id: run-pytest
+        run: |
+          OUTPUT_HTML="${{ env.OUTPUT_HTML }}"
+          
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
+            cd blueprint-github-test
+            curl -sSL https://install.python-poetry.org | python3 -          
+            $HOME/.local/bin/poetry install
+            source $($HOME/.local/bin/poetry env info --path)/bin/activate
+            rm -rf input/*
+            cp "$OUTPUT_HTML" input/01_scRNA_analysis_preprocessing.html
+            ls -l input/
+            pytest -m single_cell --disable-warnings
+          "
                              
-      # - name: Upload the result notebook as artifact
-      #   if: always()
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: result-notebook
-      #     path: "result.html"
-      #     retention-days: 30
+      - name: Copy result files from container to runner
+        if: steps.run-pytest.outcome == 'success'
+        run: |
+          OUTPUT_HTML="${{ env.OUTPUT_HTML }}"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_HTML" "${{ github.workspace }}"
+
+      - name: Upload the result notebook as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-notebook
+          path: "${{ github.workspace }}/result.html"
+          retention-days: 30
 
       - name: Stop containers
         if: ${{ always() }}
