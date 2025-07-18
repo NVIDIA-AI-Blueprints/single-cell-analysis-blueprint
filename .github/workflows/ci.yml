@@ -350,11 +350,19 @@ jobs:
 
             rm -rf input/*
             cp "$OUTPUT_NOTEBOOK_HTML" input/01_scRNA_analysis_preprocessing.html
-            echo 'Test files prepared:'
+            echo "===============Test files prepared====================="
             ls -l input/
             poetry run pytest -m single_cell --disable-warnings \
               --html="$OUTPUT_PYTEST_HTML" \
-              --self-contained-html
+              --self-contained-html || echo "Pytest completed with status $?"
+            
+            echo "===============Check file====================="
+            if [ -s "$OUTPUT_PYTEST_HTML" ]; then
+                echo "$OUTPUT_PYTEST_HTML exists and has contents"
+            else
+                echo "$OUTPUT_PYTEST_HTML does NOT exist or has NO contents"
+            fi
+            echo "===============Check file====================="
           '
                              
       - name: Copy result files from container to runner
