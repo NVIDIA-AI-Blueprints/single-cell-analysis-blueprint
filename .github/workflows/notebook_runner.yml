@@ -240,12 +240,8 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
           head -c 500000 docker-logs.txt
 
-      - name: Run Jupyter Notebook
-        id: run-jupyter-notebook
-        timeout-minutes: 30
+      - name: Make sure container is ready for testing
         run: |
-          # NOTE: matrix expression won't be parsed in EOF
-
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash <<'EOF'
           set -euxo pipefail
 
@@ -295,22 +291,28 @@ jobs:
           jupyter kernelspec list
           EOF
 
-          echo "=============== Executing notebook ====================="
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
-          set -euxo pipefail
-          export PYTHONUNBUFFERED=1
-          
+      - name: Run Jupyter Notebook
+        id: run-jupyter-notebook
+        timeout-minutes: 30
+        run: |
+          # NOTE: matrix expression won't be parsed in EOF
           NOTEBOOK_RELATIVED_DIR="${{ env.NOTEBOOK_RELATIVED_DIR }}"
           NOTEBOOK_FILENAME="${{ steps.set_global_vars.outputs.notebook_filename }}"
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
           DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
 
-          papermill "$NOTEBOOK_RELATIVED_DIR/$NOTEBOOK_FILENAME" "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" \
+          echo "=============== Executing notebook ====================="
+
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
+          set -euxo pipefail
+          export PYTHONUNBUFFERED=1
+          
+          papermill "${NOTEBOOK_RELATIVED_DIR}/${NOTEBOOK_FILENAME}" "${DOCKER_WRITEABLE_DIR}/${OUTPUT_NOTEBOOK}" \
             --log-output \
             --log-level DEBUG \
             --progress-bar \
             --report-mode \
-            --kernel python3 2>&1 | tee "$DOCKER_WRITEABLE_DIR/papermill.log"
+            --kernel python3 2>&1 | tee "${DOCKER_WRITEABLE_DIR}/papermill.log"
 
           echo "===============Check file====================="
           if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" ]; then
@@ -323,9 +325,9 @@ jobs:
           echo '=== Papermill logs ==='
           cat "$DOCKER_WRITEABLE_DIR/papermill.log"
           EOF
+
           echo "=============== Executing notebook --- Done ====================="
 
-          
       - name: Convert result to html format
         id: generate-notebook-html
         if: steps.run-jupyter-notebook.outcome == 'success'
