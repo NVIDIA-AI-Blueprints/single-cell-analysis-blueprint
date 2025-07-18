@@ -45,8 +45,12 @@ jobs:
         run: |
           DOCKER_IMG_CACHE_NAME=$(echo "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" | sed 's/[\/:@.]/_/g')
           echo "Cache filename: ${DOCKER_IMG_CACHE_NAME}.tar"
-
           echo "docker_img_cache_name=${DOCKER_IMG_CACHE_NAME}" >> $GITHUB_OUTPUT
+
+          NOTEBOOK_FILENAME="${{ env.NOTEBOOK_FILENAME }}"
+          NOTEBOOK_BASENAME=$(basename "$NOTEBOOK_FILENAME" | cut -d. -f1)
+          echo "notebook_basename=${NOTEBOOK_BASENAME}" >> $GITHUB_OUTPUT
+
           echo "cache_key=${{ runner.os }}-docker-$DOCKER_IMG_CACHE_NAME" >> $GITHUB_OUTPUT
 
       - name: Checkout BP repository
@@ -120,9 +124,10 @@ jobs:
         run: |
           DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
           DOCKER_CACHE_DIR="${{ env.DOCKER_CACHE_DIR }}"
-          mkdir -p "$DOCKER_WRITEABLE_DIR/DOCKER_CACHE_DIR"
-          sudo chown -R $(id -u):$(id -g) "$DOCKER_WRITEABLE_DIR/DOCKER_CACHE_DIR"
-          ls -ld "$DOCKER_WRITEABLE_DIR/DOCKER_CACHE_DIR"
+          
+          mkdir -p "$DOCKER_WRITEABLE_DIR/$DOCKER_CACHE_DIR"
+          sudo chown -R $(id -u):$(id -g) "$DOCKER_WRITEABLE_DIR/$DOCKER_CACHE_DIR"
+          ls -ld "$DOCKER_WRITEABLE_DIR/$DOCKER_CACHE_DIR"
 
       - name: Cache Docker image
         id: cache-docker-image
@@ -351,7 +356,8 @@ jobs:
             source "$(poetry env info --path)/bin/activate"
 
             rm -rf input/*
-            cp "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" input/01_scRNA_analysis_preprocessing.html
+            NOTEBOOK_BASENAME="${{ steps.set_global_vars.outputs.notebook_basename }}"
+            cp "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" input/"$NOTEBOOK_BASENAME".html
             echo "===============Test files prepared====================="
             ls -l input/
             poetry run pytest -m single_cell --disable-warnings \
