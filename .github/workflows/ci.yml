@@ -310,7 +310,13 @@ jobs:
           echo "Run jupyter notebook succeeded, running Convert result to HTML format"
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
           OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend jupyter nbconvert --to html "$OUTPUT_NOTEBOOK" -o "$OUTPUT_NOTEBOOK_HTML" 2>&1 | tee /tmp/jupyter_nbconvert.log
+
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
+            jupyter nbconvert --to html \"$OUTPUT_NOTEBOOK\" \
+              --output \"$(basename "$OUTPUT_NOTEBOOK_HTML" .html)" \
+              --output-dir \"$(dirname "$OUTPUT_NOTEBOOK_HTML")\" \
+              > /tmp/jupyter_nbconvert.log 2>&1
+          "
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             echo '===jupyter_nbconvert  logs ==='
@@ -328,21 +334,24 @@ jobs:
       - name: Install Poetry/Dependencies and execute test
         id: generate-pytest-html
         run: |
-          cat << 'EOF' > run_test_to_html.sh
-          #!/bin/bash
-          curl -sSL https://install.python-poetry.org | python3 -
-          export PATH="/home/rapids/.local/bin:$PATH"
-          poetry install
-          source $(poetry env info --path)/bin/activate
-          rm -rf input/*
-          cp "$1" input/01_scRNA_analysis_preprocessing.html
-          ls -l input/
-          pytest -m single_cell --disable-warnings --html="$2" --self-contained-html
-          EOF
-    
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp "${{ github.workspace }}"/run_test_to_html.sh backend:/home/rapids/notebooks/blueprint-github-test/
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c \
-            "cd notebooks/blueprint-github-test/ && chmod +x run_test_to_html.sh && ./run_test_to_html.sh \"$OUTPUT_NOTEBOOK_HTML\" \"$OUTPUT_PYTEST_HTML\""
+          OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
+          OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
+          
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
+            set -euo pipefail && \
+            cd blueprint-github-test && \
+            export PATH=\"/home/rapids/.local/bin:\$PATH\" && \
+            curl -sSL https://install.python-poetry.org | python3 - --version 1.5.1 && \
+            poetry config virtualenvs.in-project true && \
+            poetry install --no-interaction --no-root && \
+            if [ -d './cloudia' ]; then \
+              poetry install --no-interaction; \
+            fi && \
+            rm -rf input/* && \
+            cp \"$OUTPUT_NOTEBOOK_HTML\" input/01_scRNA_analysis_preprocessing.html && \
+            ls -l input/ && \
+            poetry run pytest -m single_cell --disable-warnings --html=\"$OUTPUT_PYTEST_HTML\" --self-contained-html \
+          "
                              
       - name: Copy result files from container to runner
         id: prepare-result-file
