@@ -334,13 +334,13 @@ jobs:
       - name: Install Poetry/Dependencies and execute test
         id: generate-pytest-html
         run: |
-          OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-          OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
-          
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
             set -euo pipefail
             cd blueprint-github-test
 
+            OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
+            OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
+          
             export PATH="/home/rapids/.local/bin:$PATH"
             curl -sSL https://install.python-poetry.org | python3 -
 
