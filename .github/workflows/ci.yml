@@ -34,7 +34,7 @@ jobs:
       OUTPUT_NOTEBOOK: "/tmp/result.ipynb"
       OUTPUT_NOTEBOOK_HTML: "/tmp/notebook-result.html"
       OUTPUT_PYTEST_HTML: "/tmp/pytest-result.html"
-      ARTIFACT_DIR: "${{ github.workspace }}/test-results/"
+      ARTIFACT_DIR: "${{ github.workspace }}/test-results"
       PYTHON_VERSION: "3.12"
     steps:  
       - name: Set global vars
@@ -383,7 +383,7 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_PYTEST_HTML" "$ARTIFACT_DIR"
 
           pwd
-          ls -al ./
+          ls -al "$ARTIFACT_DIR"
 
       - name: Upload the result notebook as artifact
         if: steps.prepare-result-file.outcome == 'success'
