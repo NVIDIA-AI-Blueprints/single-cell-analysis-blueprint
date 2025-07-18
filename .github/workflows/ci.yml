@@ -34,6 +34,7 @@ jobs:
       OUTPUT_NOTEBOOK: "/tmp/result.ipynb"
       OUTPUT_NOTEBOOK_HTML: "/tmp/notebook-result.html"
       OUTPUT_PYTEST_HTML: "/tmp/pytest-result.html"
+      ARTIFACT_DIR: "${{ github.workspace }}/test-results/"
       PYTHON_VERSION: "3.12"
     steps:  
       - name: Set global vars
@@ -376,9 +377,11 @@ jobs:
 
           OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
           OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_NOTEBOOK_HTML" ./
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_PYTEST_HTML" ./
-          
+          ARTIFACT_DIR="${{ env.ARTIFACT_DIR }}"
+          mkdir -p "$ARTIFACT_DIR"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_NOTEBOOK_HTML" "$ARTIFACT_DIR"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_PYTEST_HTML" "$ARTIFACT_DIR"
+
           pwd
           ls -al ./
 
@@ -388,7 +391,8 @@ jobs:
         with:
           name: result-notebook
           path: |
-            "./*-result.html"
+            "${{ env.ARTIFACT_DIR }}/notebook-result.html"
+            "${{ env.ARTIFACT_DIR }}/pytest-result.html"
           retention-days: 30
 
       - name: Stop containers
