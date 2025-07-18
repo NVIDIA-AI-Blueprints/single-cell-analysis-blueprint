@@ -311,12 +311,12 @@ jobs:
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
           OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
 
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
-            jupyter nbconvert --to html \"$OUTPUT_NOTEBOOK\" \
-              --output \"$(basename "$OUTPUT_NOTEBOOK_HTML" .html)" \
-              --output-dir \"$(dirname "$OUTPUT_NOTEBOOK_HTML")\" \
-              > /tmp/jupyter_nbconvert.log 2>&1
-          "
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
+          jupyter nbconvert --to html "$OUTPUT_NOTEBOOK" \
+            --output "$OUTPUT_NOTEBOOK_HTML" \
+            --output-dir /tmp/ \
+            > /tmp/jupyter_nbconvert.log 2>&1
+          EOF
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
             echo '===jupyter_nbconvert  logs ==='
