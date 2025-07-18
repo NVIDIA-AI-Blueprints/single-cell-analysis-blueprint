@@ -20,7 +20,6 @@ services:
       - "0.0.0.0:8787:8787"      # Dask dashboard
       - "0.0.0.0:8786:8786"      # Dask scheduler
     volumes:
-      # - ${HOST_PIP_CACHE_DIR:-/home/runner/.cache/pip}:/home/rapids/.cache/pip
       - ${NOTEBOOKS_HOST_PATH:-/home/runner/single-cell-analysis-blueprint/}:/tmp/app/
     user: rapids
     working_dir: /home/rapids

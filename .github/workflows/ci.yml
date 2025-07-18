@@ -23,6 +23,17 @@ concurrency:
 jobs:
   run-notebook:
     runs-on: arc-runner-set-oke-org-poc
+    strategy:
+      matrix:
+        NOTEBOOK_FILENAME: [
+          "01_scRNA_analysis_preprocessing.ipynb",
+          "02_scRNA_analysis_extended.ipynb",
+          "03_scRNA_analysis_with_pearson_residuals.ipynb",
+          "04_scRNA_analysis_dask_out_of_core.ipynb"
+          # "05_scRNA_analysis_multi_GPU.ipynb"
+          # "06_scRNA_analysis_90k_brain_example.ipynb",
+          # "07_scRNA_analysis_1.3M_brain_example.ipynb"
+        ]
     env:
       #### VARS
       DOCKER_IMG_NAME: "nvcr.io/nvidia/rapidsai/notebooks"
@@ -35,13 +46,13 @@ jobs:
       ### CONSTANT
       DOCKER_WRITEABLE_DIR: "/tmp"
       DOCKER_CACHE_DIR: "docker-pull-cache"
-      OUTPUT_NOTEBOOK: "result.ipynb"
-      OUTPUT_NOTEBOOK_HTML: "notebook-result.html"
-      OUTPUT_PYTEST_HTML: "pytest-result.html"
-      ARTIFACT_DIR: "${{ github.workspace }}/test-results"
+      OUTPUT_NOTEBOOK: "result_${{ matrix.NOTEBOOK_FILENAME }}"
+      OUTPUT_NOTEBOOK_HTML: "result_${{ matrix.NOTEBOOK_FILENAME }}.html"
+      OUTPUT_PYTEST_HTML: "pytest_result_${{ matrix.NOTEBOOK_FILENAME }}.html"
+      ARTIFACT_DIR: "${{ github.workspace }}/test-results/${{ matrix.NOTEBOOK_FILENAME }}"
     steps:  
       - name: Set global vars
-        id: set_global_vars  # 必须指定 id，以便后续步骤引用
+        id: set_global_vars
         run: |
           DOCKER_IMG_CACHE_NAME=$(echo "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" | sed 's/[\/:@.]/_/g')
           echo "Cache filename: ${DOCKER_IMG_CACHE_NAME}.tar"
@@ -78,22 +89,9 @@ jobs:
         with:
           repository: 'NVIDIA-AI-Blueprints/blueprint-github-test'
           token: ${{ secrets.JOHNNY_DEV_GH_TOKEN }}
-          ### Have no ideas why BLUEPRINT_GITHUB_TEST does not work here
-          # token: ${{ secrets.BLUEPRINT_GITHUB_TEST }}
           path: blueprint-github-test
           fetch-depth: 1
         
-      - run: |
-          echo "repo path is: ${{ github.workspace }}"
-          ls -la "${{ github.workspace }}"
-      
-      - name: Debug Info
-        run: |
-          echo "=============Debug Info======================"
-          pwd
-          ls -al .
-          echo "=============Debug Info======================"
-     
       - uses: ./.github/actions/setup-env
         with:
           python-version: '3.12'
@@ -124,7 +122,7 @@ jobs:
         run: |
           DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
           DOCKER_CACHE_DIR="${{ env.DOCKER_CACHE_DIR }}"
-          
+
           mkdir -p "$DOCKER_WRITEABLE_DIR/$DOCKER_CACHE_DIR"
           sudo chown -R $(id -u):$(id -g) "$DOCKER_WRITEABLE_DIR/$DOCKER_CACHE_DIR"
           ls -ld "$DOCKER_WRITEABLE_DIR/$DOCKER_CACHE_DIR"
@@ -212,13 +210,10 @@ jobs:
           
           DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
           export DOCKER_IMG_TAG=$DOCKER_IMG_TAG
-          # export HOST_PIP_CACHE_DIR="$HOME/.cache/pip"
           export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
 
           echo "DOCKER_IMG_TAG: $DOCKER_IMG_TAG"
           echo "NOTEBOOKS_HOST_PATH: $NOTEBOOKS_HOST_PATH"
-          echo "Workspace path: $GITHUB_WORKSPACE"
-          echo "Workspace path: ${{ github.workspace }}"
 
           pwd
           ls -al ./
@@ -242,6 +237,12 @@ jobs:
         run: |
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash <<'EOF'
           set -euxo pipefail
+
+          whoami
+          pwd
+          ls -al ./
+          ls -al ./notebooks/
+          ls -al /tmp/app
 
           python -m pip install --upgrade pip --user || true
 
