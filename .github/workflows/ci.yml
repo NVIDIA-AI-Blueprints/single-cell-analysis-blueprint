@@ -29,6 +29,7 @@ concurrency:
 jobs:
   run-notebook:
     runs-on: arc-runner-set-oke-org-poc
+    environment: dev
     strategy:
       matrix:
         NOTEBOOK_FILENAME: [
@@ -408,7 +409,7 @@ jobs:
         if: steps.prepare-result-file.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: results-"${{ steps.set_global_vars.outputs.notebook_basename }}"
           path: ${{ env.ARTIFACT_DIR }}/
           retention-days: 30
           if-no-files-found: error 
