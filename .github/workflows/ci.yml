@@ -371,9 +371,16 @@ jobs:
           steps.generate-notebook-html.outcome == 'success' &&
           steps.generate-pytest-html.outcome == 'success'
         run: |
+          pwd
+          ls -al
+
           OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_NOTEBOOK_HTML" "${{ github.workspace }}"
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_PYTEST_HTML" "${{ github.workspace }}"
+          OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_NOTEBOOK_HTML" ./
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_PYTEST_HTML" ./
+          
+          pwd
+          ls -al ./
 
       - name: Upload the result notebook as artifact
         if: steps.prepare-result-file.outcome == 'success'
@@ -381,7 +388,7 @@ jobs:
         with:
           name: result-notebook
           path: |
-            "${{ github.workspace }}/*-result.html"
+            "./*-result.html"
           retention-days: 30
 
       - name: Stop containers
