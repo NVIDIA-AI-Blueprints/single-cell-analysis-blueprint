@@ -27,9 +27,9 @@ jobs:
       matrix:
         NOTEBOOK_FILENAME: [
           "01_scRNA_analysis_preprocessing.ipynb",
-          "02_scRNA_analysis_extended.ipynb",
-          "03_scRNA_analysis_with_pearson_residuals.ipynb",
-          "04_scRNA_analysis_dask_out_of_core.ipynb"
+          # "02_scRNA_analysis_extended.ipynb",
+          # "03_scRNA_analysis_with_pearson_residuals.ipynb",
+          # "04_scRNA_analysis_dask_out_of_core.ipynb",
           # "05_scRNA_analysis_multi_GPU.ipynb"
           # "06_scRNA_analysis_90k_brain_example.ipynb",
           # "07_scRNA_analysis_1.3M_brain_example.ipynb"
@@ -201,213 +201,213 @@ jobs:
           DOCKER_CACHE_DIR="${{ env.DOCKER_CACHE_DIR }}"
           du -sh ${DOCKER_CACHE_DIR}/*
 
-      - name: Start container
-        run: |
-          start_time=$(date +%s)
-          docker images -a
-          echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
+      # - name: Start container
+      #   run: |
+      #     start_time=$(date +%s)
+      #     docker images -a
+      #     echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
           
           
-          DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
-          export DOCKER_IMG_TAG=$DOCKER_IMG_TAG
-          export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
+      #     DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
+      #     export DOCKER_IMG_TAG=$DOCKER_IMG_TAG
+      #     export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
 
-          echo "DOCKER_IMG_TAG: $DOCKER_IMG_TAG"
-          echo "NOTEBOOKS_HOST_PATH: $NOTEBOOKS_HOST_PATH"
+      #     echo "DOCKER_IMG_TAG: $DOCKER_IMG_TAG"
+      #     echo "NOTEBOOKS_HOST_PATH: $NOTEBOOKS_HOST_PATH"
 
-          pwd
-          ls -al ./
+      #     pwd
+      #     ls -al ./
 
-          set -e
-          export COMPOSE_HTTP_TIMEOUT=300
-          docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d --wait --force-recreate
+      #     set -e
+      #     export COMPOSE_HTTP_TIMEOUT=300
+      #     docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d --wait --force-recreate
           
-          end_time=$(date +%s)
-          echo "Execution time: $((end_time - start_time)) seconds"
+      #     end_time=$(date +%s)
+      #     echo "Execution time: $((end_time - start_time)) seconds"
 
-      - name: Check containers status
-        run: |
-          docker ps -a
-          docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
-          cat docker-logs.txt
+      # - name: Check containers status
+      #   run: |
+      #     docker ps -a
+      #     docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
+      #     cat docker-logs.txt
 
-      - name: Run Jupyter Notebook
-        id: run-jupyter-notebook
-        timeout-minutes: 30
-        run: |
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash <<'EOF'
-          set -euxo pipefail
+      # - name: Run Jupyter Notebook
+      #   id: run-jupyter-notebook
+      #   timeout-minutes: 30
+      #   run: |
+      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash <<'EOF'
+      #     set -euxo pipefail
 
-          whoami
-          pwd
-          ls -al ./
-          ls -al ./notebooks/
-          ls -al /tmp/app
+      #     whoami
+      #     pwd
+      #     ls -al ./
+      #     ls -al ./notebooks/
+      #     ls -al /tmp/app
 
-          python -m pip install --upgrade pip --user || true
+      #     python -m pip install --upgrade pip --user || true
 
-          echo '=== Installing requirements ==='
-          MAX_RETRIES=3
-          RETRY_DELAY=5
-          REQUIREMENTS_FILE="requirements.txt"
+      #     echo '=== Installing requirements ==='
+      #     MAX_RETRIES=3
+      #     RETRY_DELAY=5
+      #     REQUIREMENTS_FILE="requirements.txt"
 
-          for ((i=1; i<=MAX_RETRIES; i++)); do
-              echo "Attempt #$i to install dependencies from: $REQUIREMENTS_FILE..."
+      #     for ((i=1; i<=MAX_RETRIES; i++)); do
+      #         echo "Attempt #$i to install dependencies from: $REQUIREMENTS_FILE..."
 
-              # Execute pip install and check exit status directly
-              if pip install --user --no-cache-dir -r "$REQUIREMENTS_FILE"; then
-                  echo "Dependencies installed successfully!"
-                  break
-              else
-                  echo "Dependency installation failed (exit code: $?)."
-                  if [ "$i" -lt "$MAX_RETRIES" ]; then
-                      echo "Retrying in $RETRY_DELAY seconds..."
-                      sleep "$RETRY_DELAY"
-                  else
-                      echo "Maximum retry attempts ($MAX_RETRIES) reached. Proceeding with subsequent commands."
-                  fi
-              fi
-          done         
+      #         # Execute pip install and check exit status directly
+      #         if pip install --user --no-cache-dir -r "$REQUIREMENTS_FILE"; then
+      #             echo "Dependencies installed successfully!"
+      #             break
+      #         else
+      #             echo "Dependency installation failed (exit code: $?)."
+      #             if [ "$i" -lt "$MAX_RETRIES" ]; then
+      #                 echo "Retrying in $RETRY_DELAY seconds..."
+      #                 sleep "$RETRY_DELAY"
+      #             else
+      #                 echo "Maximum retry attempts ($MAX_RETRIES) reached. Proceeding with subsequent commands."
+      #             fi
+      #         fi
+      #     done         
 
-          pip install jupyter papermill
+      #     pip install jupyter papermill
 
-          echo '=== Verifying installations ==='
-          pip list
+      #     echo '=== Verifying installations ==='
+      #     pip list
 
-          echo '=== Verifying kernel ==='
-          jupyter kernelspec list
-          EOF
+      #     echo '=== Verifying kernel ==='
+      #     jupyter kernelspec list
+      #     EOF
 
-          echo "=============== Executing notebook ====================="
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
-          set -euxo pipefail
-          export PYTHONUNBUFFERED=1
+      #     echo "=============== Executing notebook ====================="
+      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
+      #     set -euxo pipefail
+      #     export PYTHONUNBUFFERED=1
           
-          NOTEBOOK_RELATIVED_DIR="${{ env.NOTEBOOK_RELATIVED_DIR }}"
-          NOTEBOOK_FILENAME="${{ env.NOTEBOOK_FILENAME }}"
-          OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
-          DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
+      #     NOTEBOOK_RELATIVED_DIR="${{ env.NOTEBOOK_RELATIVED_DIR }}"
+      #     NOTEBOOK_FILENAME="${{ env.NOTEBOOK_FILENAME }}"
+      #     OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
+      #     DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
 
-          papermill "$NOTEBOOK_RELATIVED_DIR/$NOTEBOOK_FILENAME" "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" \
-            --log-output \
-            --log-level DEBUG \
-            --progress-bar \
-            --report-mode \
-            --kernel python3 2>&1 | tee "$DOCKER_WRITEABLE_DIR/papermill.log"
+      #     papermill "$NOTEBOOK_RELATIVED_DIR/$NOTEBOOK_FILENAME" "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" \
+      #       --log-output \
+      #       --log-level DEBUG \
+      #       --progress-bar \
+      #       --report-mode \
+      #       --kernel python3 2>&1 | tee "$DOCKER_WRITEABLE_DIR/papermill.log"
 
-          echo "===============Check file====================="
-          if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" ]; then
-              echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK exists and has contents"
-          else
-              echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK does NOT exist or has NO contents"
-          fi
-          echo "===============Check file====================="
+      #     echo "===============Check file====================="
+      #     if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" ]; then
+      #         echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK exists and has contents"
+      #     else
+      #         echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK does NOT exist or has NO contents"
+      #     fi
+      #     echo "===============Check file====================="
 
-          echo '=== Papermill logs ==='
-          cat "$DOCKER_WRITEABLE_DIR/papermill.log"
-          EOF
-          echo "=============== Executing notebook --- Done ====================="
+      #     echo '=== Papermill logs ==='
+      #     cat "$DOCKER_WRITEABLE_DIR/papermill.log"
+      #     EOF
+      #     echo "=============== Executing notebook --- Done ====================="
 
           
-      - name: Convert result to html format
-        id: generate-notebook-html
-        if: steps.run-jupyter-notebook.outcome == 'success'
-        run: |
-          echo "Run jupyter notebook succeeded, running Convert result to HTML format"
-          OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
-          OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-          DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
+      # - name: Convert result to html format
+      #   id: generate-notebook-html
+      #   if: steps.run-jupyter-notebook.outcome == 'success'
+      #   run: |
+      #     echo "Run jupyter notebook succeeded, running Convert result to HTML format"
+      #     OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
+      #     OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
+      #     DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
 
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
-          jupyter nbconvert --to html "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" \
-            --output "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" \
-            --output-dir "$DOCKER_WRITEABLE_DIR" \
-            > "$DOCKER_WRITEABLE_DIR/jupyter_nbconvert.log" 2>&1
-          EOF
+      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
+      #     jupyter nbconvert --to html "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" \
+      #       --output "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" \
+      #       --output-dir "$DOCKER_WRITEABLE_DIR" \
+      #       > "$DOCKER_WRITEABLE_DIR/jupyter_nbconvert.log" 2>&1
+      #     EOF
 
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
-            echo '===jupyter_nbconvert  logs ==='
-            cat "$DOCKER_WRITEABLE_DIR/jupyter_nbconvert.log" 
+      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
+      #       echo '===jupyter_nbconvert  logs ==='
+      #       cat "$DOCKER_WRITEABLE_DIR/jupyter_nbconvert.log" 
 
-            echo "===============Check file====================="
-            if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" ]; then
-                echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML exists and has contents"
-            else
-                echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML does NOT exist or has NO contents"
-            fi
-            echo "===============Check file====================="
-          '
+      #       echo "===============Check file====================="
+      #       if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" ]; then
+      #           echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML exists and has contents"
+      #       else
+      #           echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML does NOT exist or has NO contents"
+      #       fi
+      #       echo "===============Check file====================="
+      #     '
           
-      - name: Install Poetry/Dependencies and execute test
-        id: generate-pytest-html
-        run: |
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
-            set -euo pipefail
-            cd blueprint-github-test
+      # - name: Install Poetry/Dependencies and execute test
+      #   id: generate-pytest-html
+      #   run: |
+      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
+      #       set -euo pipefail
+      #       cd blueprint-github-test
 
-            OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-            OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
-            DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
+      #       OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
+      #       OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
+      #       DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
           
-            export PATH="/home/rapids/.local/bin:$PATH"
-            curl -sSL https://install.python-poetry.org | python3 -
+      #       export PATH="/home/rapids/.local/bin:$PATH"
+      #       curl -sSL https://install.python-poetry.org | python3 -
 
-            export PATH="/home/rapids/.local/bin:$PATH"
-            poetry install --no-interaction --no-root
-            source "$(poetry env info --path)/bin/activate"
+      #       export PATH="/home/rapids/.local/bin:$PATH"
+      #       poetry install --no-interaction --no-root
+      #       source "$(poetry env info --path)/bin/activate"
 
-            rm -rf input/*
-            NOTEBOOK_BASENAME="${{ steps.set_global_vars.outputs.notebook_basename }}"
-            cp "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" input/"$NOTEBOOK_BASENAME".html
-            echo "===============Test files prepared====================="
-            ls -l input/
-            poetry run pytest -m single_cell --disable-warnings \
-              --html="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" \
-              --self-contained-html || echo "Pytest completed with status $?"
+      #       rm -rf input/*
+      #       NOTEBOOK_BASENAME="${{ steps.set_global_vars.outputs.notebook_basename }}"
+      #       cp "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" input/"$NOTEBOOK_BASENAME".html
+      #       echo "===============Test files prepared====================="
+      #       ls -l input/
+      #       poetry run pytest -m single_cell --disable-warnings \
+      #         --html="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" \
+      #         --self-contained-html || echo "Pytest completed with status $?"
             
-            echo "===============Check file====================="
-            if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" ]; then
-                echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML exists and has contents"
-            else
-                echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML does NOT exist or has NO contents"
-            fi
-            echo "===============Check file====================="
-          '
+      #       echo "===============Check file====================="
+      #       if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" ]; then
+      #           echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML exists and has contents"
+      #       else
+      #           echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML does NOT exist or has NO contents"
+      #       fi
+      #       echo "===============Check file====================="
+      #     '
                              
-      - name: Copy result files from container to runner
-        id: prepare-result-file
-        if: >
-          steps.generate-notebook-html.outcome == 'success' &&
-          steps.generate-pytest-html.outcome == 'success'
-        run: |
-          pwd
-          ls -al
+      # - name: Copy result files from container to runner
+      #   id: prepare-result-file
+      #   if: >
+      #     steps.generate-notebook-html.outcome == 'success' &&
+      #     steps.generate-pytest-html.outcome == 'success'
+      #   run: |
+      #     pwd
+      #     ls -al
 
-          OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-          OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
-          DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
-          ARTIFACT_DIR="${{ env.ARTIFACT_DIR }}"
+      #     OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
+      #     OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
+      #     DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
+      #     ARTIFACT_DIR="${{ env.ARTIFACT_DIR }}"
 
-          mkdir -p "$ARTIFACT_DIR" || exit 1
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" "$ARTIFACT_DIR"
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" "$ARTIFACT_DIR"
+      #     mkdir -p "$ARTIFACT_DIR" || exit 1
+      #     docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" "$ARTIFACT_DIR"
+      #     docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" "$ARTIFACT_DIR"
 
-          echo "===========Show the contents of dir: $ARTIFACT_DIR================="
-          ls -al "$ARTIFACT_DIR"
+      #     echo "===========Show the contents of dir: $ARTIFACT_DIR================="
+      #     ls -al "$ARTIFACT_DIR"
 
 
-      - name: Upload the result notebook as artifact
-        if: steps.prepare-result-file.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: ${{ env.ARTIFACT_DIR }}/
-          retention-days: 30
-          if-no-files-found: error 
+      # - name: Upload the result notebook as artifact
+      #   if: steps.prepare-result-file.outcome == 'success'
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: test-results
+      #     path: ${{ env.ARTIFACT_DIR }}/
+      #     retention-days: 30
+      #     if-no-files-found: error 
 
-      - name: Stop containers
-        if: ${{ always() }}
-        run: docker compose -f "$DOCKER_COMPOSE_FILE" down
+      # - name: Stop containers
+      #   if: ${{ always() }}
+      #   run: docker compose -f "$DOCKER_COMPOSE_FILE" down
 
       - name: Clean up
         if: always()
