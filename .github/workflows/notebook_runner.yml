@@ -68,6 +68,7 @@ jobs:
 
           NOTEBOOK_FILENAME="${{ matrix.NOTEBOOK_FILENAME }}"
           NOTEBOOK_BASENAME=$(basename "$NOTEBOOK_FILENAME" | cut -d. -f1)
+          echo "notebook_filename=${NOTEBOOK_FILENAME}" >> $GITHUB_OUTPUT
           echo "notebook_basename=${NOTEBOOK_BASENAME}" >> $GITHUB_OUTPUT
 
           echo "cache_key=${{ runner.os }}-docker-$DOCKER_IMG_CACHE_NAME" >> $GITHUB_OUTPUT
@@ -298,7 +299,7 @@ jobs:
           export PYTHONUNBUFFERED=1
           
           NOTEBOOK_RELATIVED_DIR="${{ env.NOTEBOOK_RELATIVED_DIR }}"
-          NOTEBOOK_FILENAME="${{ matrix.NOTEBOOK_FILENAME }}"
+          NOTEBOOK_FILENAME="${{ steps.set_global_vars.outputs.notebook_filename }}"
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
           DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
 
