@@ -39,376 +39,366 @@ jobs:
       OUTPUT_PYTEST_HTML: "pytest-result.html"
       ARTIFACT_DIR: "${{ github.workspace }}/test-results"
     steps:  
-      # - name: Set global vars
-      #   id: set_global_vars  # 必须指定 id，以便后续步骤引用
-      #   run: |
-      #     DOCKER_IMG_CACHE_NAME=$(echo "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" | sed 's/[\/:@.]/_/g')
-      #     echo "Cache filename: ${DOCKER_IMG_CACHE_NAME}.tar"
+      - name: Set global vars
+        id: set_global_vars  # 必须指定 id，以便后续步骤引用
+        run: |
+          DOCKER_IMG_CACHE_NAME=$(echo "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" | sed 's/[\/:@.]/_/g')
+          echo "Cache filename: ${DOCKER_IMG_CACHE_NAME}.tar"
 
-      #     echo "docker_img_cache_name=${DOCKER_IMG_CACHE_NAME}" >> $GITHUB_OUTPUT
-      #     echo "cache_key=${{ runner.os }}-docker-$DOCKER_IMG_CACHE_NAME" >> $GITHUB_OUTPUT
+          echo "docker_img_cache_name=${DOCKER_IMG_CACHE_NAME}" >> $GITHUB_OUTPUT
+          echo "cache_key=${{ runner.os }}-docker-$DOCKER_IMG_CACHE_NAME" >> $GITHUB_OUTPUT
 
-      # - name: Checkout BP repository
-      #   uses: actions/checkout@v4
+      - name: Checkout BP repository
+        uses: actions/checkout@v4
 
-      # - name: Verify Token Access
-      #   run: |
-      #     RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-      #       -H "Authorization: Bearer ${{ secrets.JOHNNY_DEV_GH_TOKEN }}" \
-      #       -H "Accept: application/vnd.github.v3+json" \
-      #       "https://api.github.com/repos/NVIDIA-AI-Blueprints/blueprint-github-test")
+      - name: Verify Token Access
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.JOHNNY_DEV_GH_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/NVIDIA-AI-Blueprints/blueprint-github-test")
 
-      #     if [ "$RESPONSE" = "200" ]; then
-      #       echo "✓ Repository accessible"
-      #     elif [ "$RESPONSE" = "404" ]; then
-      #       echo "✗ Repository not found (check name/visibility)"
-      #       exit 1
-      #     else
-      #       echo "✗ Unexpected response: $RESPONSE"
-      #       exit 1
-      #     fi
+          if [ "$RESPONSE" = "200" ]; then
+            echo "✓ Repository accessible"
+          elif [ "$RESPONSE" = "404" ]; then
+            echo "✗ Repository not found (check name/visibility)"
+            exit 1
+          else
+            echo "✗ Unexpected response: $RESPONSE"
+            exit 1
+          fi
 
-      # - name: Checkout Test repository
-      #   uses: actions/checkout@v4
-      #   with:
-      #     repository: 'NVIDIA-AI-Blueprints/blueprint-github-test'
-      #     token: ${{ secrets.JOHNNY_DEV_GH_TOKEN }}
-      #     ### Have no ideas why BLUEPRINT_GITHUB_TEST does not work here
-      #     # token: ${{ secrets.BLUEPRINT_GITHUB_TEST }}
-      #     path: blueprint-github-test
-      #     fetch-depth: 1
+      - name: Checkout Test repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'NVIDIA-AI-Blueprints/blueprint-github-test'
+          token: ${{ secrets.JOHNNY_DEV_GH_TOKEN }}
+          ### Have no ideas why BLUEPRINT_GITHUB_TEST does not work here
+          # token: ${{ secrets.BLUEPRINT_GITHUB_TEST }}
+          path: blueprint-github-test
+          fetch-depth: 1
         
-      # - run: |
-      #     echo "repo path is: ${{ github.workspace }}"
-      #     ls -la "${{ github.workspace }}"
+      - run: |
+          echo "repo path is: ${{ github.workspace }}"
+          ls -la "${{ github.workspace }}"
       
-      # - name: Debug Info
-      #   run: |
-      #     echo "=============Debug Info======================"
-      #     pwd
-      #     ls -al .
-      #     echo "=============Debug Info======================"
+      - name: Debug Info
+        run: |
+          echo "=============Debug Info======================"
+          pwd
+          ls -al .
+          echo "=============Debug Info======================"
      
-      # - uses: ./.github/actions/setup-env
-      #   with:
-      #     python-version: '3.12'
-      #     check-disk: 'false'
+      - uses: ./.github/actions/setup-env
+        with:
+          python-version: '3.12'
+          check-disk: 'false'
 
-      # - name: Setup docker env
-      #   env:
-      #     NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-      #   run: |
-      #     # Install wget
-      #     sudo apt-get update
-      #     sudo apt-get install wget
-      #     # Install Docker and Docker Compose in a single step
-      #     curl -fsSL https://get.docker.com -o get-docker.sh
-      #     sudo sh get-docker.sh
-      #     sudo apt-get update
-      #     sudo apt-get install -y docker-compose-plugin docker-compose build-essential
-      #     # Get System Info
-      #     echo "===================== System Info ====================="
-      #     more /etc/os-release
-      #     nvidia-smi
-      #     docker version
-      #     docker compose version
+      - name: Setup docker env
+        env:
+          NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+        run: |
+          # Install wget
+          sudo apt-get update
+          sudo apt-get install wget
+          # Install Docker and Docker Compose in a single step
+          curl -fsSL https://get.docker.com -o get-docker.sh
+          sudo sh get-docker.sh
+          sudo apt-get update
+          sudo apt-get install -y docker-compose-plugin docker-compose build-essential
+          # Get System Info
+          echo "===================== System Info ====================="
+          more /etc/os-release
+          nvidia-smi
+          docker version
+          docker compose version
 
-      # - uses: ./.github/actions/check-sysinfo
+      - uses: ./.github/actions/check-sysinfo
 
-      # - name: Ensure cache directory exists
-      #   run: |
-      #     DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
-      #     DOCKER_CACHE_DIR="${{ env.DOCKER_CACHE_DIR }}"
-      #     mkdir -p "$DOCKER_WRITEABLE_DIR/DOCKER_CACHE_DIR"
-      #     sudo chown -R $(id -u):$(id -g) "$DOCKER_WRITEABLE_DIR/DOCKER_CACHE_DIR"
-      #     ls -ld "$DOCKER_WRITEABLE_DIR/DOCKER_CACHE_DIR"
+      - name: Ensure cache directory exists
+        run: |
+          DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
+          DOCKER_CACHE_DIR="${{ env.DOCKER_CACHE_DIR }}"
+          mkdir -p "$DOCKER_WRITEABLE_DIR/DOCKER_CACHE_DIR"
+          sudo chown -R $(id -u):$(id -g) "$DOCKER_WRITEABLE_DIR/DOCKER_CACHE_DIR"
+          ls -ld "$DOCKER_WRITEABLE_DIR/DOCKER_CACHE_DIR"
 
-      # - name: Cache Docker image
-      #   id: cache-docker-image
-      #   if: always()
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: ${{ env.DOCKER_CACHE_DIR }}
-      #     key: "${{ steps.set_global_vars.outputs.cache_key }}"
-      #     restore-keys: |
-      #       ${{ runner.os }}-docker-
+      - name: Cache Docker image
+        id: cache-docker-image
+        if: always()
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.DOCKER_CACHE_DIR }}
+          key: "${{ steps.set_global_vars.outputs.cache_key }}"
+          restore-keys: |
+            ${{ runner.os }}-docker-
       
-      # - name: Debug info
-      #   run: |
-      #     echo "Primary Key: ${{ steps.cache-docker-image.outputs.cache-primary-key || 'N/A' }}"
-      #     echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit || 'false' }}"
-      #     echo "Cache Path: ${{ env.DOCKER_CACHE_DIR }}"
-      #     ls -la ${{ env.DOCKER_CACHE_DIR }}
-        
-      # - name: Load cached docker image
-      #   if: steps.cache-docker-image.outputs.cache-hit == 'true'
-      #   run: |
-      #     DOCKER_CACHE_DIR="${{ env.DOCKER_CACHE_DIR }}"
-      #     DOCKER_IMG_CACHE_NAME="${{ steps.set_global_vars.outputs.docker_img_cache_name }}"
-      #     echo "Cached file with path: $DOCKER_CACHE_DIR/$DOCKER_IMG_CACHE_NAME"
-
-      #     if [ -f "${DOCKER_CACHE_DIR}/${DOCKER_IMG_CACHE_NAME}.tar" ]; then
-      #       echo "[Info]: the docker image cache exists, just load it from cache"
-      #       docker load -i "${DOCKER_CACHE_DIR}/${DOCKER_IMG_CACHE_NAME}".tar
-      #       echo "[Info]: the docker image cache exists, just load it from cache --- Done"
-      #     fi
-
-      # - name: Pull docker image
-      #   run: |
-      #     start_time=$(date +%s)
-
-      #     DOCKER_IMG_NAME="${{ env.DOCKER_IMG_NAME }}"
-      #     DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
-      #     DOCKER_CACHE_DIR="${{ env.DOCKER_CACHE_DIR }}"
-      #     DOCKER_IMG_CACHE_NAME="${{ steps.set_global_vars.outputs.docker_img_cache_name }}"
-
-      #     echo "Docker image will use: $DOCKER_IMG_NAME:$DOCKER_IMG_TAG"
-
-      #     if docker image inspect "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" >/dev/null 2>&1; then
-      #       echo "[Info] Image already exists, skipping pull."
-      #       exit 0
-      #     fi
-          
-      #     echo "[Info]: the docker image cache does NOT exists, just pull it from remote"
-      #     if ! docker pull "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG"; then
-      #       echo "Pull failed, retrying..." 
-      #       sleep 10
-      #       docker pull --quiet "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" || {
-      #         echo "Error: Docker pull failed after retry"
-      #         exit 1
-      #       }
-      #     fi
-      #     echo "[Info]: the docker image cache does NOT exists, just pull it from remote --- Done"
-
-          
-      #     mkdir -p ${DOCKER_CACHE_DIR}
-      #     echo "[Info]: the docker image pull done, save it to cache path now"
-      #     docker save $DOCKER_IMG_NAME:$DOCKER_IMG_TAG > ${DOCKER_CACHE_DIR}/${DOCKER_IMG_CACHE_NAME}.tar
-      #     docker save -o ${DOCKER_CACHE_DIR}/${DOCKER_IMG_CACHE_NAME}.tar $DOCKER_IMG_NAME:$DOCKER_IMG_TAG
-      #     ls -alh ${DOCKER_CACHE_DIR}
-      #     echo "[Info]: the docker image pull done, save it to cache path now --- Done"
-          
-      #     end_time=$(date +%s)
-      #     echo "Execution time: $((end_time - start_time)) seconds"
-      #   timeout-minutes: 20
-
-      # - name: Verify cache
-      #   run: |
-      #     DOCKER_CACHE_DIR="${{ env.DOCKER_CACHE_DIR }}"
-      #     du -sh ${DOCKER_CACHE_DIR}/*
-
-      # - name: Start container
-      #   run: |
-      #     start_time=$(date +%s)
-      #     docker images -a
-      #     echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
-          
-          
-      #     DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
-      #     export DOCKER_IMG_TAG=$DOCKER_IMG_TAG
-      #     # export HOST_PIP_CACHE_DIR="$HOME/.cache/pip"
-      #     export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
-
-      #     echo "DOCKER_IMG_TAG: $DOCKER_IMG_TAG"
-      #     echo "NOTEBOOKS_HOST_PATH: $NOTEBOOKS_HOST_PATH"
-      #     echo "Workspace path: $GITHUB_WORKSPACE"
-      #     echo "Workspace path: ${{ github.workspace }}"
-
-      #     pwd
-      #     ls -al ./
-
-      #     set -e
-      #     export COMPOSE_HTTP_TIMEOUT=300
-      #     docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d --wait --force-recreate
-          
-      #     end_time=$(date +%s)
-      #     echo "Execution time: $((end_time - start_time)) seconds"
-
-      # - name: Check containers status
-      #   run: |
-      #     docker ps -a
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
-      #     cat docker-logs.txt
-
-      # # - name: Debug setup tmate for SSH access
-      # #   uses: mxschmitt/action-tmate@v3
-      # #   with:
-      # #     limit-access-to-actor: true 
-      # #     timeout-minutes: 240
-
-      # - name: Run Jupyter Notebook
-      #   id: run-jupyter-notebook
-      #   timeout-minutes: 30
-      #   # env:
-      #   #   NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-      #   #   NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
-      #   #   NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
-      #   #   VENV_PATH: "/opt/venv"
-      #   run: |
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash <<'EOF'
-      #     set -euxo pipefail
-
-      #     python -m pip install --upgrade pip --user || true
-
-      #     echo '=== Installing requirements ==='
-      #     MAX_RETRIES=3
-      #     RETRY_DELAY=5
-      #     REQUIREMENTS_FILE="requirements.txt"
-
-      #     for ((i=1; i<=MAX_RETRIES; i++)); do
-      #         echo "Attempt #$i to install dependencies from: $REQUIREMENTS_FILE..."
-
-      #         # Execute pip install and check exit status directly
-      #         if pip install --user --no-cache-dir -r "$REQUIREMENTS_FILE"; then
-      #             echo "Dependencies installed successfully!"
-      #             break
-      #         else
-      #             echo "Dependency installation failed (exit code: $?)."
-      #             if [ "$i" -lt "$MAX_RETRIES" ]; then
-      #                 echo "Retrying in $RETRY_DELAY seconds..."
-      #                 sleep "$RETRY_DELAY"
-      #             else
-      #                 echo "Maximum retry attempts ($MAX_RETRIES) reached. Proceeding with subsequent commands."
-      #             fi
-      #         fi
-      #     done         
-
-      #     pip install jupyter papermill
-
-      #     echo '=== Verifying installations ==='
-      #     pip list
-
-      #     echo '=== Verifying kernel ==='
-      #     jupyter kernelspec list
-      #     EOF
-
-      #     echo "=============== Executing notebook ====================="
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
-      #     set -euxo pipefail
-      #     export PYTHONUNBUFFERED=1
-          
-      #     OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
-      #     DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
-
-      #     papermill "$NOTEBOOK_PATH" "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" \
-      #       --log-output \
-      #       --log-level DEBUG \
-      #       --progress-bar \
-      #       --report-mode \
-      #       --kernel python3 2>&1 | tee "$DOCKER_WRITEABLE_DIR/papermill.log"
-
-      #     echo "===============Check file====================="
-      #     if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" ]; then
-      #         echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK exists and has contents"
-      #     else
-      #         echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK does NOT exist or has NO contents"
-      #     fi
-      #     echo "===============Check file====================="
-
-      #     echo '=== Papermill logs ==='
-      #     cat "$DOCKER_WRITEABLE_DIR/papermill.log"
-      #     EOF
-      #     echo "=============== Executing notebook --- Done ====================="
-
-          
-      # - name: Convert result to html format
-      #   id: generate-notebook-html
-      #   if: steps.run-jupyter-notebook.outcome == 'success'
-      #   run: |
-      #     echo "Run jupyter notebook succeeded, running Convert result to HTML format"
-      #     OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
-      #     OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-      #     DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
-
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
-      #     jupyter nbconvert --to html "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" \
-      #       --output "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" \
-      #       --output-dir "$DOCKER_WRITEABLE_DIR" \
-      #       > "$DOCKER_WRITEABLE_DIR/jupyter_nbconvert.log" 2>&1
-      #     EOF
-
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
-      #       echo '===jupyter_nbconvert  logs ==='
-      #       cat "$DOCKER_WRITEABLE_DIR/jupyter_nbconvert.log" 
-
-      #       echo "===============Check file====================="
-      #       if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" ]; then
-      #           echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML exists and has contents"
-      #       else
-      #           echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML does NOT exist or has NO contents"
-      #       fi
-      #       echo "===============Check file====================="
-      #     '
-          
-      # - name: Install Poetry/Dependencies and execute test
-      #   id: generate-pytest-html
-      #   run: |
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
-      #       set -euo pipefail
-      #       cd blueprint-github-test
-
-      #       OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-      #       OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
-      #       DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
-          
-      #       export PATH="/home/rapids/.local/bin:$PATH"
-      #       curl -sSL https://install.python-poetry.org | python3 -
-
-      #       export PATH="/home/rapids/.local/bin:$PATH"
-      #       poetry install --no-interaction --no-root
-      #       source "$(poetry env info --path)/bin/activate"
-
-      #       rm -rf input/*
-      #       cp "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" input/01_scRNA_analysis_preprocessing.html
-      #       echo "===============Test files prepared====================="
-      #       ls -l input/
-      #       poetry run pytest -m single_cell --disable-warnings \
-      #         --html="$OUTPUT_PYTEST_HTML" \
-      #         --self-contained-html || echo "Pytest completed with status $?"
-            
-      #       echo "===============Check file====================="
-      #       if [ -s "$OUTPUT_PYTEST_HTML" ]; then
-      #           echo "$OUTPUT_PYTEST_HTML exists and has contents"
-      #       else
-      #           echo "$OUTPUT_PYTEST_HTML does NOT exist or has NO contents"
-      #       fi
-      #       echo "===============Check file====================="
-      #     '
-                             
-      # - name: Copy result files from container to runner
-      #   id: prepare-result-file
-      #   if: >
-      #     steps.generate-notebook-html.outcome == 'success' &&
-      #     steps.generate-pytest-html.outcome == 'success'
-      #   run: |
-      #     pwd
-      #     ls -al
-
-      #     OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-      #     OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
-      #     ARTIFACT_DIR="${{ env.ARTIFACT_DIR }}"
-
-      #     mkdir -p "$ARTIFACT_DIR" || exit 1
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_NOTEBOOK_HTML" "$ARTIFACT_DIR"
-      #     docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$OUTPUT_PYTEST_HTML" "$ARTIFACT_DIR"
-
-      #     echo "===========Show the contents of dir: $ARTIFACT_DIR================="
-      #     ls -al "$ARTIFACT_DIR"
-
       - name: Debug info
         run: |
+          echo "Primary Key: ${{ steps.cache-docker-image.outputs.cache-primary-key || 'N/A' }}"
+          echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit || 'false' }}"
+          echo "Cache Path: ${{ env.DOCKER_CACHE_DIR }}"
+          ls -la ${{ env.DOCKER_CACHE_DIR }}
+        
+      - name: Load cached docker image
+        if: steps.cache-docker-image.outputs.cache-hit == 'true'
+        run: |
+          DOCKER_CACHE_DIR="${{ env.DOCKER_CACHE_DIR }}"
+          DOCKER_IMG_CACHE_NAME="${{ steps.set_global_vars.outputs.docker_img_cache_name }}"
+          echo "Cached file with path: $DOCKER_CACHE_DIR/$DOCKER_IMG_CACHE_NAME"
+
+          if [ -f "${DOCKER_CACHE_DIR}/${DOCKER_IMG_CACHE_NAME}.tar" ]; then
+            echo "[Info]: the docker image cache exists, just load it from cache"
+            docker load -i "${DOCKER_CACHE_DIR}/${DOCKER_IMG_CACHE_NAME}".tar
+            echo "[Info]: the docker image cache exists, just load it from cache --- Done"
+          fi
+
+      - name: Pull docker image
+        run: |
+          start_time=$(date +%s)
+
+          DOCKER_IMG_NAME="${{ env.DOCKER_IMG_NAME }}"
+          DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
+          DOCKER_CACHE_DIR="${{ env.DOCKER_CACHE_DIR }}"
+          DOCKER_IMG_CACHE_NAME="${{ steps.set_global_vars.outputs.docker_img_cache_name }}"
+
+          echo "Docker image will use: $DOCKER_IMG_NAME:$DOCKER_IMG_TAG"
+
+          if docker image inspect "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" >/dev/null 2>&1; then
+            echo "[Info] Image already exists, skipping pull."
+            exit 0
+          fi
+          
+          echo "[Info]: the docker image cache does NOT exists, just pull it from remote"
+          if ! docker pull "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG"; then
+            echo "Pull failed, retrying..." 
+            sleep 10
+            docker pull --quiet "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG" || {
+              echo "Error: Docker pull failed after retry"
+              exit 1
+            }
+          fi
+          echo "[Info]: the docker image cache does NOT exists, just pull it from remote --- Done"
+
+          
+          mkdir -p ${DOCKER_CACHE_DIR}
+          echo "[Info]: the docker image pull done, save it to cache path now"
+          docker save $DOCKER_IMG_NAME:$DOCKER_IMG_TAG > ${DOCKER_CACHE_DIR}/${DOCKER_IMG_CACHE_NAME}.tar
+          docker save -o ${DOCKER_CACHE_DIR}/${DOCKER_IMG_CACHE_NAME}.tar $DOCKER_IMG_NAME:$DOCKER_IMG_TAG
+          ls -alh ${DOCKER_CACHE_DIR}
+          echo "[Info]: the docker image pull done, save it to cache path now --- Done"
+          
+          end_time=$(date +%s)
+          echo "Execution time: $((end_time - start_time)) seconds"
+        timeout-minutes: 20
+
+      - name: Verify cache
+        run: |
+          DOCKER_CACHE_DIR="${{ env.DOCKER_CACHE_DIR }}"
+          du -sh ${DOCKER_CACHE_DIR}/*
+
+      - name: Start container
+        run: |
+          start_time=$(date +%s)
+          docker images -a
+          echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
+          
+          
+          DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
+          export DOCKER_IMG_TAG=$DOCKER_IMG_TAG
+          # export HOST_PIP_CACHE_DIR="$HOME/.cache/pip"
+          export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
+
+          echo "DOCKER_IMG_TAG: $DOCKER_IMG_TAG"
+          echo "NOTEBOOKS_HOST_PATH: $NOTEBOOKS_HOST_PATH"
+          echo "Workspace path: $GITHUB_WORKSPACE"
+          echo "Workspace path: ${{ github.workspace }}"
+
+          pwd
+          ls -al ./
+
+          set -e
+          export COMPOSE_HTTP_TIMEOUT=300
+          docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d --wait --force-recreate
+          
+          end_time=$(date +%s)
+          echo "Execution time: $((end_time - start_time)) seconds"
+
+      - name: Check containers status
+        run: |
+          docker ps -a
+          docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
+          cat docker-logs.txt
+
+      # - name: Debug setup tmate for SSH access
+      #   uses: mxschmitt/action-tmate@v3
+      #   with:
+      #     limit-access-to-actor: true 
+      #     timeout-minutes: 240
+
+      - name: Run Jupyter Notebook
+        id: run-jupyter-notebook
+        timeout-minutes: 30
+        # env:
+        #   NGC_API_Key: ${{ secrets.NGC_API_KEY }}
+        #   NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
+        #   NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
+        #   VENV_PATH: "/opt/venv"
+        run: |
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash <<'EOF'
+          set -euxo pipefail
+
+          python -m pip install --upgrade pip --user || true
+
+          echo '=== Installing requirements ==='
+          MAX_RETRIES=3
+          RETRY_DELAY=5
+          REQUIREMENTS_FILE="requirements.txt"
+
+          for ((i=1; i<=MAX_RETRIES; i++)); do
+              echo "Attempt #$i to install dependencies from: $REQUIREMENTS_FILE..."
+
+              # Execute pip install and check exit status directly
+              if pip install --user --no-cache-dir -r "$REQUIREMENTS_FILE"; then
+                  echo "Dependencies installed successfully!"
+                  break
+              else
+                  echo "Dependency installation failed (exit code: $?)."
+                  if [ "$i" -lt "$MAX_RETRIES" ]; then
+                      echo "Retrying in $RETRY_DELAY seconds..."
+                      sleep "$RETRY_DELAY"
+                  else
+                      echo "Maximum retry attempts ($MAX_RETRIES) reached. Proceeding with subsequent commands."
+                  fi
+              fi
+          done         
+
+          pip install jupyter papermill
+
+          echo '=== Verifying installations ==='
+          pip list
+
+          echo '=== Verifying kernel ==='
+          jupyter kernelspec list
+          EOF
+
+          echo "=============== Executing notebook ====================="
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
+          set -euxo pipefail
+          export PYTHONUNBUFFERED=1
+          
+          OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
+          DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
+
+          papermill "$NOTEBOOK_PATH" "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" \
+            --log-output \
+            --log-level DEBUG \
+            --progress-bar \
+            --report-mode \
+            --kernel python3 2>&1 | tee "$DOCKER_WRITEABLE_DIR/papermill.log"
+
+          echo "===============Check file====================="
+          if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" ]; then
+              echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK exists and has contents"
+          else
+              echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK does NOT exist or has NO contents"
+          fi
+          echo "===============Check file====================="
+
+          echo '=== Papermill logs ==='
+          cat "$DOCKER_WRITEABLE_DIR/papermill.log"
+          EOF
+          echo "=============== Executing notebook --- Done ====================="
+
+          
+      - name: Convert result to html format
+        id: generate-notebook-html
+        if: steps.run-jupyter-notebook.outcome == 'success'
+        run: |
+          echo "Run jupyter notebook succeeded, running Convert result to HTML format"
+          OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
+          OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
+          DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
+
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
+          jupyter nbconvert --to html "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" \
+            --output "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" \
+            --output-dir "$DOCKER_WRITEABLE_DIR" \
+            > "$DOCKER_WRITEABLE_DIR/jupyter_nbconvert.log" 2>&1
+          EOF
+
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
+            echo '===jupyter_nbconvert  logs ==='
+            cat "$DOCKER_WRITEABLE_DIR/jupyter_nbconvert.log" 
+
+            echo "===============Check file====================="
+            if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" ]; then
+                echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML exists and has contents"
+            else
+                echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML does NOT exist or has NO contents"
+            fi
+            echo "===============Check file====================="
+          '
+          
+      - name: Install Poetry/Dependencies and execute test
+        id: generate-pytest-html
+        run: |
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
+            set -euo pipefail
+            cd blueprint-github-test
+
+            OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
+            OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
+            DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
+          
+            export PATH="/home/rapids/.local/bin:$PATH"
+            curl -sSL https://install.python-poetry.org | python3 -
+
+            export PATH="/home/rapids/.local/bin:$PATH"
+            poetry install --no-interaction --no-root
+            source "$(poetry env info --path)/bin/activate"
+
+            rm -rf input/*
+            cp "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" input/01_scRNA_analysis_preprocessing.html
+            echo "===============Test files prepared====================="
+            ls -l input/
+            poetry run pytest -m single_cell --disable-warnings \
+              --html="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" \
+              --self-contained-html || echo "Pytest completed with status $?"
+            
+            echo "===============Check file====================="
+            if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" ]; then
+                echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML exists and has contents"
+            else
+                echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML does NOT exist or has NO contents"
+            fi
+            echo "===============Check file====================="
+          '
+                             
+      - name: Copy result files from container to runner
+        id: prepare-result-file
+        if: >
+          steps.generate-notebook-html.outcome == 'success' &&
+          steps.generate-pytest-html.outcome == 'success'
+        run: |
+          pwd
+          ls -al
+
+          OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
+          OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
+          DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
           ARTIFACT_DIR="${{ env.ARTIFACT_DIR }}"
 
           mkdir -p "$ARTIFACT_DIR" || exit 1
-          touch "$ARTIFACT_DIR/123.html"
-          touch "$ARTIFACT_DIR/456.html"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" "$ARTIFACT_DIR"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" "$ARTIFACT_DIR"
 
           echo "===========Show the contents of dir: $ARTIFACT_DIR================="
           ls -al "$ARTIFACT_DIR"
 
 
       - name: Upload the result notebook as artifact
-        # if: steps.prepare-result-file.outcome == 'success'
+        if: steps.prepare-result-file.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: test-results
@@ -416,9 +406,9 @@ jobs:
           retention-days: 30
           if-no-files-found: error 
 
-      # - name: Stop containers
-      #   if: ${{ always() }}
-      #   run: docker compose -f "$DOCKER_COMPOSE_FILE" down
+      - name: Stop containers
+        if: ${{ always() }}
+        run: docker compose -f "$DOCKER_COMPOSE_FILE" down
 
       - name: Clean up
         if: always()
