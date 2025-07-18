@@ -328,29 +328,21 @@ jobs:
       - name: Install Poetry/Dependencies and execute test
         id: generate-pytest-html
         run: |
-          OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-          OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
-          
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
-            cd blueprint-github-test
-            curl -sSL https://install.python-poetry.org | python3 -          
-
-            /home/rapids/.local/bin/poetry install
-            
-            POETRY_PATH="/home/rapids/.local/bin/poetry"
-            VENV_PATH="$($POETRY_PATH env info --path)/bin/activate"
-            if [ -f "$VENV_PATH" ]; then
-                source "$VENV_PATH"
-            else
-                echo "Error: Virtualenv not found at $VENV_PATH"
-                exit 1
-            fi
-
-            rm -rf input/*
-            cp "$OUTPUT_NOTEBOOK_HTML" input/01_scRNA_analysis_preprocessing.html
-            ls -l input/
-            pytest -m single_cell --disable-warnings --html=$OUTPUT_PYTEST_HTML --self-contained-html
-          "
+          cat << 'EOF' > run_test.sh
+          #!/bin/bash
+          cd blueprint-github-test
+          curl -sSL https://install.python-poetry.org | python3 -
+          export PATH="/home/rapids/.local/bin:$PATH"
+          poetry install
+          source $(poetry env info --path)/bin/activate
+          rm -rf input/*
+          cp "$1" input/01_scRNA_analysis_preprocessing.html
+          ls -l input/
+          pytest -m single_cell --disable-warnings --html="$2" --self-contained-html
+          EOF
+    
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c \
+            "chmod +x run_test.sh && ./run_test.sh \"$OUTPUT_NOTEBOOK_HTML\" \"$OUTPUT_PYTEST_HTML\""
                              
       - name: Copy result files from container to runner
         id: prepare-result-file
