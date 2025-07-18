@@ -328,9 +328,8 @@ jobs:
       - name: Install Poetry/Dependencies and execute test
         id: generate-pytest-html
         run: |
-          cat << 'EOF' > run_test.sh
+          cat << 'EOF' > run_test_to_html.sh
           #!/bin/bash
-          cd blueprint-github-test
           curl -sSL https://install.python-poetry.org | python3 -
           export PATH="/home/rapids/.local/bin:$PATH"
           poetry install
@@ -341,8 +340,9 @@ jobs:
           pytest -m single_cell --disable-warnings --html="$2" --self-contained-html
           EOF
     
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp "${{ github.workspace }}"/run_test_to_html.sh backend:/home/rapids/notebooks/blueprint-github-test/
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c \
-            "chmod +x run_test.sh && ./run_test.sh \"$OUTPUT_NOTEBOOK_HTML\" \"$OUTPUT_PYTEST_HTML\""
+            "cd notebooks/blueprint-github-test/ && chmod +x run_test_to_html.sh && ./run_test_to_html.sh \"$OUTPUT_NOTEBOOK_HTML\" \"$OUTPUT_PYTEST_HTML\""
                              
       - name: Copy result files from container to runner
         id: prepare-result-file
