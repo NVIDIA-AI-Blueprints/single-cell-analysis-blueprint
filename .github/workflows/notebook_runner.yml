@@ -73,6 +73,9 @@ jobs:
 
           echo "cache_key=${{ runner.os }}-docker-$DOCKER_IMG_CACHE_NAME" >> $GITHUB_OUTPUT
 
+          ARTIFACT_CLEAN_NAME=$(echo "$NOTEBOOK_BASENAME" | tr -d '"<>:|*?\\/')
+          echo "artifact_name=results-$ARTIFACT_CLEAN_NAME" >> $GITHUB_OUTPUT
+
       - name: Checkout BP repository
         uses: actions/checkout@v4
 
@@ -419,7 +422,7 @@ jobs:
         if: steps.prepare-result-file.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: results-"${{ steps.set_global_vars.outputs.notebook_basename }}"
+          name: ${{ steps.set_global_vars.outputs.artifact_name }}
           path: ${{ env.ARTIFACT_DIR }}/
           retention-days: 30
           if-no-files-found: error 
