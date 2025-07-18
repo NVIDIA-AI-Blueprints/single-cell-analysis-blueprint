@@ -244,7 +244,7 @@ jobs:
         id: run-jupyter-notebook
         timeout-minutes: 30
         run: |
-          # NOTE: ${{ matrix. }} won't be parsed in EOF
+          # NOTE: matrix expression won't be parsed in EOF
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash <<'EOF'
           set -euxo pipefail
