@@ -20,7 +20,7 @@ on:
       target_branch:
         description: 'Branch to run on (e.g. main)'
         required: false
-        default: ${{ github.ref_name }}
+        default: ''
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
