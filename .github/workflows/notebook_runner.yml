@@ -41,6 +41,8 @@ jobs:
           # "06_scRNA_analysis_90k_brain_example.ipynb",
           # "07_scRNA_analysis_1.3M_brain_example.ipynb"
         ]
+      max-parallel: 1
+      fail-fast: false
     env:
       DEPLOY_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
 
