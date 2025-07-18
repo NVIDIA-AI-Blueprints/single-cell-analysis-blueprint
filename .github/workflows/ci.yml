@@ -28,7 +28,8 @@ jobs:
       DOCKER_IMG_NAME: "nvcr.io/nvidia/rapidsai/notebooks"
       DOCKER_IMG_TAG: "25.06-cuda12.8-py3.12"
       DOCKER_COMPOSE_FILE: "${{ github.workspace }}/docker/brev/docker-compose-nb-2504.yaml"
-      NOTEBOOK_PATH: "./notebooks/01_scRNA_analysis_preprocessing.ipynb"
+      NOTEBOOK_RELATIVED_DIR: "notebooks"
+      NOTEBOOK_FILENAME: "01_scRNA_analysis_preprocessing.ipynb"
       PYTHON_VERSION: "3.12"
 
       ### CONSTANT
@@ -137,8 +138,8 @@ jobs:
         run: |
           echo "Primary Key: ${{ steps.cache-docker-image.outputs.cache-primary-key || 'N/A' }}"
           echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit || 'false' }}"
-          echo "Cache Path: ${{ env.DOCKER_CACHE_DIR }}"
-          ls -la ${{ env.DOCKER_CACHE_DIR }}
+          echo "Cache Path: ${{ env.DOCKER_WRITEABLE_DIR }}/${{ env.DOCKER_CACHE_DIR }}"
+          ls -la ${{ env.DOCKER_WRITEABLE_DIR }}/${{ env.DOCKER_CACHE_DIR }}
         
       - name: Load cached docker image
         if: steps.cache-docker-image.outputs.cache-hit == 'true'
@@ -230,20 +231,9 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
           cat docker-logs.txt
 
-      # - name: Debug setup tmate for SSH access
-      #   uses: mxschmitt/action-tmate@v3
-      #   with:
-      #     limit-access-to-actor: true 
-      #     timeout-minutes: 240
-
       - name: Run Jupyter Notebook
         id: run-jupyter-notebook
         timeout-minutes: 30
-        # env:
-        #   NGC_API_Key: ${{ secrets.NGC_API_KEY }}
-        #   NVIDIA_API_KEY: ${{ secrets.NGC_API_KEY }}
-        #   NGC_CLI_API_KEY: ${{ secrets.NGC_API_KEY }}
-        #   VENV_PATH: "/opt/venv"
         run: |
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash <<'EOF'
           set -euxo pipefail
@@ -287,10 +277,12 @@ jobs:
           set -euxo pipefail
           export PYTHONUNBUFFERED=1
           
+          NOTEBOOK_RELATIVED_DIR="${{ env.NOTEBOOK_RELATIVED_DIR }}"
+          NOTEBOOK_FILENAME="${{ env.NOTEBOOK_FILENAME }}"
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
           DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
 
-          papermill "$NOTEBOOK_PATH" "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" \
+          papermill "$NOTEBOOK_RELATIVED_DIR/$NOTEBOOK_FILENAME" "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK" \
             --log-output \
             --log-level DEBUG \
             --progress-bar \
