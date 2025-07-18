@@ -27,9 +27,9 @@ services:
     command: >
       sh -c "
       /home/rapids/entrypoint.sh &
-      sleep 2;
+      sleep 10;
       (ls -la /tmp/app || true) &&
-      (cp -r /tmp/app/* /home/rapids/ || true)  &&
+      (cp -rf /tmp/app/* /home/rapids/ || true)  &&
       python -m jupyter lab --allow-root --ip=0.0.0.0 --no-browser
       --NotebookApp.token='' --NotebookApp.password=''
       --notebook-dir=/home/rapids/notebooks"

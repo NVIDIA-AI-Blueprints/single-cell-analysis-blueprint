@@ -33,10 +33,10 @@ jobs:
     strategy:
       matrix:
         NOTEBOOK_FILENAME: [
-          "01_scRNA_analysis_preprocessing.ipynb",
-          "02_scRNA_analysis_extended.ipynb",
-          "03_scRNA_analysis_with_pearson_residuals.ipynb",
-          "04_scRNA_analysis_dask_out_of_core.ipynb"
+          "01_scRNA_analysis_preprocessing.ipynb"
+          # "02_scRNA_analysis_extended.ipynb",
+          # "03_scRNA_analysis_with_pearson_residuals.ipynb",
+          # "04_scRNA_analysis_dask_out_of_core.ipynb"
           # "05_scRNA_analysis_multi_GPU.ipynb"
           # "06_scRNA_analysis_90k_brain_example.ipynb",
           # "07_scRNA_analysis_1.3M_brain_example.ipynb"
@@ -49,7 +49,6 @@ jobs:
       DOCKER_IMG_TAG: "25.06-cuda12.8-py3.12"
       DOCKER_COMPOSE_FILE: "${{ github.workspace }}/docker/brev/docker-compose-nb-2504.yaml"
       NOTEBOOK_RELATIVED_DIR: "notebooks"
-      NOTEBOOK_FILENAME: "01_scRNA_analysis_preprocessing.ipynb"
       PYTHON_VERSION: "3.12"
 
       ### CONSTANT
@@ -67,7 +66,7 @@ jobs:
           echo "Cache filename: ${DOCKER_IMG_CACHE_NAME}.tar"
           echo "docker_img_cache_name=${DOCKER_IMG_CACHE_NAME}" >> $GITHUB_OUTPUT
 
-          NOTEBOOK_FILENAME="${{ env.NOTEBOOK_FILENAME }}"
+          NOTEBOOK_FILENAME="${{ matrix.NOTEBOOK_FILENAME }}"
           NOTEBOOK_BASENAME=$(basename "$NOTEBOOK_FILENAME" | cut -d. -f1)
           echo "notebook_basename=${NOTEBOOK_BASENAME}" >> $GITHUB_OUTPUT
 
@@ -238,7 +237,7 @@ jobs:
         run: |
           docker ps -a
           docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
-          cat docker-logs.txt
+          head -c 500000 docker-logs.txt
 
       - name: Run Jupyter Notebook
         id: run-jupyter-notebook
@@ -252,6 +251,12 @@ jobs:
           ls -al ./
           ls -al ./notebooks/
           ls -al /tmp/app
+
+          ### double time to copy files from /tmp/app
+          echo "===double confirm the files are copied in home directory==="
+          cp -rf /tmp/app/* /home/rapids/
+          ls -al ./
+          ls -al ./notebooks
 
           python -m pip install --upgrade pip --user || true
 
@@ -293,7 +298,7 @@ jobs:
           export PYTHONUNBUFFERED=1
           
           NOTEBOOK_RELATIVED_DIR="${{ env.NOTEBOOK_RELATIVED_DIR }}"
-          NOTEBOOK_FILENAME="${{ env.NOTEBOOK_FILENAME }}"
+          NOTEBOOK_FILENAME="${{ matrix.NOTEBOOK_FILENAME }}"
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
           DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
 
