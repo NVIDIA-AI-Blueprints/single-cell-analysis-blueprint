@@ -318,7 +318,7 @@ jobs:
             > /tmp/jupyter_nbconvert.log 2>&1
           EOF
 
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
             echo '===jupyter_nbconvert  logs ==='
             cat /tmp/jupyter_nbconvert.log
 
@@ -329,7 +329,7 @@ jobs:
                 echo "$OUTPUT_NOTEBOOK_HTML does NOT exist or has NO contents"
             fi
             echo "===============Check file====================="
-          "
+          '
           
       - name: Install Poetry/Dependencies and execute test
         id: generate-pytest-html
@@ -337,21 +337,25 @@ jobs:
           OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
           OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
           
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c "
-            set -euo pipefail && \
-            cd blueprint-github-test && \
-            export PATH=\"/home/rapids/.local/bin:\$PATH\" && \
-            curl -sSL https://install.python-poetry.org | python3 - --version 1.5.1 && \
-            poetry config virtualenvs.in-project true && \
-            poetry install --no-interaction --no-root && \
-            if [ -d './cloudia' ]; then \
-              poetry install --no-interaction; \
-            fi && \
-            rm -rf input/* && \
-            cp \"$OUTPUT_NOTEBOOK_HTML\" input/01_scRNA_analysis_preprocessing.html && \
-            ls -l input/ && \
-            poetry run pytest -m single_cell --disable-warnings --html=\"$OUTPUT_PYTEST_HTML\" --self-contained-html \
-          "
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
+            set -euo pipefail
+            cd blueprint-github-test
+
+            export PATH="/home/rapids/.local/bin:$PATH"
+            curl -sSL https://install.python-poetry.org | python3 -
+
+            export PATH="/home/rapids/.local/bin:$PATH"
+            poetry install --no-interaction --no-root
+            source "$(poetry env info --path)/bin/activate"
+
+            rm -rf input/*
+            cp "$OUTPUT_NOTEBOOK_HTML" input/01_scRNA_analysis_preprocessing.html
+            echo 'Test files prepared:'
+            ls -l input/
+            poetry run pytest -m single_cell --disable-warnings \
+              --html="$OUTPUT_PYTEST_HTML" \
+              --self-contained-html
+          '
                              
       - name: Copy result files from container to runner
         id: prepare-result-file
