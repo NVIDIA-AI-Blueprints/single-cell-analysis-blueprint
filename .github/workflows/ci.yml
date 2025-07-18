@@ -408,7 +408,7 @@ jobs:
 
 
       - name: Upload the result notebook as artifact
-        if: steps.prepare-result-file.outcome == 'success'
+        # if: steps.prepare-result-file.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: test-results
