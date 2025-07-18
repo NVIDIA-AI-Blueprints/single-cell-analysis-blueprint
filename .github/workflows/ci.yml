@@ -29,8 +29,10 @@ jobs:
       DOCKER_IMG_NAME: "nvcr.io/nvidia/rapidsai/notebooks"
       DOCKER_IMG_TAG: "25.06-cuda12.8-py3.12"
       DOCKER_COMPOSE_FILE: "${{ github.workspace }}/docker/brev/docker-compose-nb-2504.yaml"
-      DOCKER_CACHE_PATH: "/tmp/docker-pull-cache"
       NOTEBOOK_PATH: "./notebooks/01_scRNA_analysis_preprocessing.ipynb"
+
+      ### CONSTANT
+      DOCKER_CACHE_PATH: "/tmp/docker-pull-cache"
       OUTPUT_NOTEBOOK: "/tmp/result.ipynb"
       OUTPUT_NOTEBOOK_HTML: "/tmp/notebook-result.html"
       OUTPUT_PYTEST_HTML: "/tmp/pytest-result.html"
