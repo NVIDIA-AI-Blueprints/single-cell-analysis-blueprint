@@ -299,6 +299,7 @@ jobs:
           export PYTHONUNBUFFERED=1
           
           NOTEBOOK_RELATIVED_DIR="${{ env.NOTEBOOK_RELATIVED_DIR }}"
+          ### NOTE: ${{ matrix.*** }} won't be parsed in EOF
           NOTEBOOK_FILENAME="${{ steps.set_global_vars.outputs.notebook_filename }}"
           OUTPUT_NOTEBOOK="${{ env.OUTPUT_NOTEBOOK }}"
           DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
