@@ -46,6 +46,7 @@ jobs:
           ]
       max-parallel: 4
       fail-fast: false
+    
     env:
       DEPLOY_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'dev' }}
 
@@ -65,10 +66,7 @@ jobs:
       OUTPUT_PYTEST_RESULT_XML: "pytest_result_${{ matrix.NOTEBOOK_FILENAME }}.xml"
       OUTPUT_PYTEST_REPORT_HTML: "pytest_report_${{ matrix.NOTEBOOK_FILENAME }}.html"
       ARTIFACT_DIR: "${{ github.workspace }}/test-results/${{ matrix.NOTEBOOK_FILENAME }}"
-    outputs:
-      results:
-        description: "Test results"
-        value: ${{ steps.run-pytest.outputs.test_results_json }}
+    
     steps:
       - name: Set global vars
         id: set_global_vars
@@ -556,8 +554,14 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" "$ARTIFACT_DIR"
           docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" "$ARTIFACT_DIR"
 
+          echo '${{ steps.run-pytest.outputs.test_results_json }}' > "$ARTIFACT_DIR/${{ matrix.NOTEBOOK_FILENAME }}.json"
+
+          mkdir -p "${{ github.workspace }}/json-results"
+          echo '${{ steps.run-pytest.outputs.test_results_json }}' > "json-results/${{ matrix.NOTEBOOK_FILENAME }}.json"
+
           echo "===========Show the contents of dir: $ARTIFACT_DIR================="
           ls -al "$ARTIFACT_DIR"
+          ls -al "${{ github.workspace }}/json-results"
 
       - name: Upload the result notebook as artifact
         if: steps.prepare-result-file.outcome == 'success'
@@ -568,6 +572,14 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
+      - name: Upload JSON test results
+        if: steps.prepare-result-file.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: json-results-${{ matrix.NOTEBOOK_FILENAME }}
+          path: json-results/${{ matrix.NOTEBOOK_FILENAME }}.json
+          retention-days: 30
+
       - name: Stop containers
         if: ${{ always() }}
         run: docker compose -f "$DOCKER_COMPOSE_FILE" down
@@ -576,7 +588,6 @@ jobs:
         if: always()
         run: |
           docker system prune -f
-
 
   summary:
     needs: run-notebook
@@ -605,6 +616,11 @@ jobs:
           echo "Error: Cache not found after 3 attempts."
           exit 1
 
+      - name: Download JSON test results
+        uses: actions/download-artifact@v4
+        with:
+          path: downloaded-results
+
       - name: Generate final report
         run: |
           echo "### 📊 Notebook Test Results Summary" >> $GITHUB_STEP_SUMMARY
@@ -621,15 +637,39 @@ jobs:
             "07_scRNA_analysis_1.3M_brain_example.ipynb"
           )
 
+          total_passed=0
+          total_failed=0
+          total_skipped=0
+          total_errors=0
+          total_xfailed=0
+          total_xpassed=0
+
           for notebook in "${notebooks[@]}"; do
             nb_name=$(basename "$notebook")
-            results=$(echo '${{ toJson(needs.run-notebook.outputs) }}' | jq -r ".\"results_${notebook}\"")
-            echo "| $nb_name | $(echo "$results" | jq -r '.passed') | $(echo "$results" | jq -r '.failed') | $(echo "$results" | jq -r '.skipped') | $(echo "$results" | jq -r '.errors') |" >> $GITHUB_STEP_SUMMARY
+            json_file="downloaded-results/json-results-${notebook}/$notebook.json"
+
+            if [ -f "$json_file" ]; then
+              results=$(cat "$json_file")
+
+              total_passed=$((total_passed + $(echo "$results" | jq -r '.passed')))
+              total_failed=$((total_failed + $(echo "$results" | jq -r '.failed')))
+              total_skipped=$((total_skipped + $(echo "$results" | jq -r '.skipped')))
+              total_errors=$((total_errors + $(echo "$results" | jq -r '.errors')))
+              total_xfailed=$((total_xfailed + $(echo "$results" | jq -r '.xfailed')))
+              total_xpassed=$((total_xpassed + $(echo "$results" | jq -r '.xpassed')))
+
+              echo "| $nb_name | $(echo "$results" | jq -r '.passed') | $(echo "$results" | jq -r '.failed') | $(echo "$results" | jq -r '.skipped') | $(echo "$results" | jq -r '.errors') |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $nb_name | ❌ Missing data | ❌ Missing data | ❌ Missing data | ❌ Missing data |" >> $GITHUB_STEP_SUMMARY
+            fi
           done
+
+          echo "| **Total** | **$total_passed** | **$total_failed** | **$total_skipped** | **$total_errors** |" >> $GITHUB_STEP_SUMMARY
 
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📌 Additional Metrics" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔶 Expected Failures (XFailed): $(echo "$results" | jq -r '.xfailed')" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚠️ Unexpected Passes (XPassed): $(echo "$results" | jq -r '.xpassed')" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔶 Expected Failures (XFailed): $total_xfailed" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚠️ Unexpected Passes (XPassed): $total_xpassed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📊 [View Detailed Artifacts]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)" >> $GITHUB_STEP_SUMMARY
+
