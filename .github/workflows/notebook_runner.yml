@@ -2,11 +2,9 @@ name: Single-cell notebooks runner
 run-name: Single-cell notebooks runner --- triggered by ${{ github.actor }} 
 
 on:
+  pull_request: {}
   push:
-    branches-ignore:
-      - main
-      - master
-      - staging
+    branches: [ main, master, staging, release/* ]
   workflow_dispatch:
     inputs:
       environment:
@@ -21,6 +19,10 @@ on:
         description: 'Branch to run on (e.g. main)'
         required: false
         default: ''
+
+permissions:
+  checks: write
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -58,7 +60,9 @@ jobs:
       DOCKER_CACHE_DIR: "docker-pull-cache"
       OUTPUT_NOTEBOOK: "result_${{ matrix.NOTEBOOK_FILENAME }}"
       OUTPUT_NOTEBOOK_HTML: "result_${{ matrix.NOTEBOOK_FILENAME }}.html"
-      OUTPUT_PYTEST_HTML: "pytest_result_${{ matrix.NOTEBOOK_FILENAME }}.html"
+      OUTPUT_PYTEST_COVERAGE_HTML: "pytest_coverage_${{ matrix.NOTEBOOK_FILENAME }}.xml"
+      OUTPUT_PYTEST_RESULT_XML: "pytest_result_${{ matrix.NOTEBOOK_FILENAME }}.xml"
+      OUTPUT_PYTEST_REPORT_HTML: "pytest_report_${{ matrix.NOTEBOOK_FILENAME }}.html"
       ARTIFACT_DIR: "${{ github.workspace }}/test-results/${{ matrix.NOTEBOOK_FILENAME }}"
     steps:  
       - name: Set global vars
@@ -117,7 +121,8 @@ jobs:
         run: |
           # Install wget
           sudo apt-get update
-          sudo apt-get install wget
+          sudo apt-get install -y wget
+
           # Install Docker and Docker Compose in a single step
           curl -fsSL https://get.docker.com -o get-docker.sh
           sudo sh get-docker.sh
@@ -287,7 +292,10 @@ jobs:
               fi
           done         
 
-          pip install jupyter papermill
+          pip install jupyter papermill pytest-html pytest-cov
+
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils
 
           echo '=== Verifying installations ==='
           pip list
@@ -362,17 +370,95 @@ jobs:
             echo "===============Check file====================="
           '
           
-      - name: Install Poetry/Dependencies and execute test
-        id: generate-pytest-html
+      # - name: Install Poetry/Dependencies and execute pytest
+      #   id: run-pytest
+      #   run: |
+      #     docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
+      #       set -euo pipefail
+      #       cd blueprint-github-test
+
+      #       OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
+      #       OUTPUT_PYTEST_COVERAGE_HTML="${{ env.OUTPUT_PYTEST_COVERAGE_HTML }}"
+      #       OUTPUT_PYTEST_RESULT_XML="${{ env.OUTPUT_PYTEST_RESULT_XML }}"
+      #       OUTPUT_PYTEST_REPORT_HTML="${{ env.OUTPUT_PYTEST_REPORT_HTML }}"
+      #       DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
+          
+      #       export PATH="/home/rapids/.local/bin:$PATH"
+      #       curl -sSL https://install.python-poetry.org | python3 -
+
+      #       export PATH="/home/rapids/.local/bin:$PATH"
+      #       poetry install --no-interaction --no-root
+      #       source "$(poetry env info --path)/bin/activate"
+
+      #       rm -rf input/*
+      #       NOTEBOOK_BASENAME="${{ steps.set_global_vars.outputs.notebook_basename }}"
+      #       cp "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" input/"$NOTEBOOK_BASENAME".html
+      #       echo "===============Test files prepared====================="
+      #       ls -l input/
+
+      #       # poetry run pytest -m single_cell --disable-warnings \
+      #       #   --html="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" \
+      #       #   --self-contained-html || echo "Pytest completed with status $?"
+
+      #       TEST_OUTPUT=$(poetry run pytest -m single_cell \
+      #         --cov=./ \
+      #         --cov-report=xml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_HTML" \
+      #         --junitxml="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" \
+      #         --html"="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" \
+      #         --self-contained-html 2>&1)
+            
+      #       echo "===============Check file====================="
+      #       ls -alh $DOCKER_WRITEABLE_DIR
+      #       echo "===============Check file====================="
+
+      #       echo "TEST_OUTPUT<<EOF" >> $GITHUB_ENV
+      #       echo "$TEST_OUTPUT" >> $GITHUB_ENV
+      #       echo "EOF" >> $GITHUB_ENV
+
+      #       passed=$(xmllint --xpath 'count(//testcase[not(skipped) and not(failure) and not(error)])' ../test-results-${{ matrix.python-version }}.xml || echo "0")
+      #       failures=$(xmllint --xpath 'count(//testcase[failure])' ../test-results-${{ matrix.python-version }}.xml || echo "0")
+      #       errors=$(xmllint --xpath 'count(//testcase[error])' ../test-results-${{ matrix.python-version }}.xml || echo "0")
+      #       skipped=$(xmllint --xpath 'count(//testcase[skipped])' ../test-results-${{ matrix.python-version }}.xml || echo "0")
+      #       xfailed=$(xmllint --xpath 'count(//testcase[contains(@name, "[xfail]")])' ../test-results-${{ matrix.python-version }}.xml || echo "0")
+      #       xpassed=$(xmllint --xpath 'count(//testcase[contains(@name, "[xpass]")])' ../test-results-${{ matrix.python-version }}.xml || echo "0")
+      #       actual_passed=$((passed - xpassed))
+
+      #       echo "### 📊 Python ${{ matrix.python-version }} Detailed Results" >> $GITHUB_STEP_SUMMARY
+      #       echo '```' >> $GITHUB_STEP_SUMMARY
+      #       echo "$TEST_OUTPUT" >> $GITHUB_STEP_SUMMARY
+      #       echo '```' >> $GITHUB_STEP_SUMMARY
+        
+      #       echo "### 🔍 Test Summary" >> $GITHUB_STEP_SUMMARY
+      #       echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+      #       echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+      #       echo "| ✅ Passed | $actual_passed |" >> $GITHUB_STEP_SUMMARY
+      #       echo "| ❌ Failed | $failures |" >> $GITHUB_STEP_SUMMARY
+      #       echo "| ⏩ Skipped | $skipped |" >> $GITHUB_STEP_SUMMARY
+      #       echo "| 💥 Errors | $errors |" >> $GITHUB_STEP_SUMMARY
+      #       echo "| 🔶 XFailed | $xfailed |" >> $GITHUB_STEP_SUMMARY
+      #       echo "| ⚠️ XPassed | $xpassed |" >> $GITHUB_STEP_SUMMARY
+
+      #       echo "passed=$actual_passed" >> $GITHUB_OUTPUT
+      #       echo "failed=$failures" >> $GITHUB_OUTPUT
+      #       echo "skipped=$skipped" >> $GITHUB_OUTPUT
+      #       echo "errors=$errors" >> $GITHUB_OUTPUT
+      #       echo "xfailed=$xfailed" >> $GITHUB_OUTPUT
+      #       echo "xpassed=$xpassed" >> $GITHUB_OUTPUT
+      #     '
+
+      - name: Install Poetry/Dependencies and execute pytest
+        id: run-pytest
         run: |
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -c '
             set -euo pipefail
             cd blueprint-github-test
 
             OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-            OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
+            OUTPUT_PYTEST_COVERAGE_HTML="${{ env.OUTPUT_PYTEST_COVERAGE_HTML }}"
+            OUTPUT_PYTEST_RESULT_XML="${{ env.OUTPUT_PYTEST_RESULT_XML }}"
+            OUTPUT_PYTEST_REPORT_HTML="${{ env.OUTPUT_PYTEST_REPORT_HTML }}"
             DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
-          
+
             export PATH="/home/rapids/.local/bin:$PATH"
             curl -sSL https://install.python-poetry.org | python3 -
 
@@ -385,36 +471,85 @@ jobs:
             cp "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" input/"$NOTEBOOK_BASENAME".html
             echo "===============Test files prepared====================="
             ls -l input/
-            poetry run pytest -m single_cell --disable-warnings \
-              --html="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" \
-              --self-contained-html || echo "Pytest completed with status $?"
-            
+
+            TEST_OUTPUT=$(poetry run pytest -m single_cell \
+              --cov=./ \
+              --cov-report=xml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_HTML" \
+              --junitxml="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" \
+              --html="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" \
+              --self-contained-html 2>&1)
+
             echo "===============Check file====================="
-            if [ -s "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" ]; then
-                echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML exists and has contents"
-            else
-                echo "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML does NOT exist or has NO contents"
-            fi
+            ls -alh $DOCKER_WRITEABLE_DIR
             echo "===============Check file====================="
+
+            echo "TEST_OUTPUT<<EOF" >> $GITHUB_ENV
+            echo "$TEST_OUTPUT" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+
+            passed=$(xmllint --xpath 'count(//testcase[not(skipped) and not(failure) and not(error)])' ../test-results-${{ matrix.python-version }}.xml || echo "0")
+            failures=$(xmllint --xpath 'count(//testcase[failure])' ../test-results-${{ matrix.python-version }}.xml || echo "0")
+            errors=$(xmllint --xpath 'count(//testcase[error])' ../test-results-${{ matrix.python-version }}.xml || echo "0")
+            skipped=$(xmllint --xpath 'count(//testcase[skipped])' ../test-results-${{ matrix.python-version }}.xml || echo "0")
+            xfailed=$(xmllint --xpath 'count(//testcase[contains(@name, "[xfail]")])' ../test-results-${{ matrix.python-version }}.xml || echo "0")
+            xpassed=$(xmllint --xpath 'count(//testcase[contains(@name, "[xpass]")])' ../test-results-${{ matrix.python-version }}.xml || echo "0")
+            actual_passed=$((passed - xpassed))
+
+            TEST_RESULTS_JSON=$(jq -n \
+              --arg passed "$actual_passed" \
+              --arg failed "$failures" \
+              --arg skipped "$skipped" \
+              --arg errors "$errors" \
+              --arg xfailed "$xfailed" \
+              --arg xpassed "$xpassed" \
+              '{passed: $passed, failed: $failed, skipped: $skipped, errors: $errors, xfailed: $xfailed, xpassed: $xpassed}' | tr -d "\n")
+
+            echo "test_results_json=$TEST_RESULTS_JSON" >> $GITHUB_OUTPUT
+
+            echo "### 📊 Python ${{ matrix.python-version }} Detailed Results" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$TEST_OUTPUT" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+  
+            echo "### 🔍 Test Summary" >> $GITHUB_STEP_SUMMARY
+            echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| ✅ Passed | $actual_passed |" >> $GITHUB_STEP_SUMMARY
+            echo "| ❌ Failed | $failures |" >> $GITHUB_STEP_SUMMARY
+            echo "| ⏩ Skipped | $skipped |" >> $GITHUB_STEP_SUMMARY
+            echo "| 💥 Errors | $errors |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔶 XFailed | $xfailed |" >> $GITHUB_STEP_SUMMARY
+            echo "| ⚠️ XPassed | $xpassed |" >> $GITHUB_STEP_SUMMARY
+
+            echo "passed=$actual_passed" >> $GITHUB_OUTPUT
+            echo "failed=$failures" >> $GITHUB_OUTPUT
+            echo "skipped=$skipped" >> $GITHUB_OUTPUT
+            echo "errors=$errors" >> $GITHUB_OUTPUT
+            echo "xfailed=$xfailed" >> $GITHUB_OUTPUT
+            echo "xpassed=$xpassed" >> $GITHUB_OUTPUT
           '
                              
       - name: Copy result files from container to runner
         id: prepare-result-file
         if: >
           steps.generate-notebook-html.outcome == 'success' &&
-          steps.generate-pytest-html.outcome == 'success'
+          steps.run-pytest.outcome == 'success'
         run: |
           pwd
           ls -al
 
           OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-          OUTPUT_PYTEST_HTML="${{ env.OUTPUT_PYTEST_HTML }}"
+          OUTPUT_PYTEST_COVERAGE_HTML="${{ env.OUTPUT_PYTEST_COVERAGE_HTML }}"
+          OUTPUT_PYTEST_RESULT_XML="${{ env.OUTPUT_PYTEST_RESULT_XML }}"
+          OUTPUT_PYTEST_REPORT_HTML="${{ env.OUTPUT_PYTEST_REPORT_HTML }}"
           DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
           ARTIFACT_DIR="${{ env.ARTIFACT_DIR }}"
 
           mkdir -p "$ARTIFACT_DIR" || exit 1
           docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" "$ARTIFACT_DIR"
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_HTML" "$ARTIFACT_DIR"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_HTML" "$ARTIFACT_DIR"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" "$ARTIFACT_DIR"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" "$ARTIFACT_DIR"
 
           echo "===========Show the contents of dir: $ARTIFACT_DIR================="
           ls -al "$ARTIFACT_DIR"
@@ -437,7 +572,45 @@ jobs:
         if: always()
         run: |
           docker system prune -f
-          
+
+    outputs:
+      results_${{ matrix.NOTEBOOK_FILENAME }}:
+        description: "Test results for ${{ matrix.NOTEBOOK_FILENAME }}"
+        value: ${{ steps.run-pytest.outputs.test_results_json }}
+
+  summary:
+    needs: run-notebook
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate final report
+        run: |
+          echo "### 📊 Notebook Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Notebook | ✅ Passed | ❌ Failed | ⏩ Skipped | 💥 Errors |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|----------|----------|-----------|----------|" >> $GITHUB_STEP_SUMMARY
+
+          notebooks=(
+            "01_scRNA_analysis_preprocessing.ipynb"
+            "02_scRNA_analysis_extended.ipynb"
+            "03_scRNA_analysis_with_pearson_residuals.ipynb"
+            "04_scRNA_analysis_dask_out_of_core.ipynb"
+            "05_scRNA_analysis_multi_GPU.ipynb"
+            "06_scRNA_analysis_90k_brain_example.ipynb"
+            "07_scRNA_analysis_1.3M_brain_example.ipynb"
+          )
+
+          for notebook in "${notebooks[@]}"; do
+            nb_name=$(basename "$notebook")
+            results=$(echo '${{ toJson(needs.run-notebook.outputs) }}' | jq -r ".\"results_${notebook}\"")
+            echo "| $nb_name | $(echo "$results" | jq -r '.passed') | $(echo "$results" | jq -r '.failed') | $(echo "$results" | jq -r '.skipped') | $(echo "$results" | jq -r '.errors') |" >> $GITHUB_STEP_SUMMARY
+          done
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📌 Additional Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔶 Expected Failures (XFailed): $(echo "$results" | jq -r '.xfailed')" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚠️ Unexpected Passes (XPassed): $(echo "$results" | jq -r '.xpassed')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 [View Detailed Artifacts]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)" >> $GITHUB_STEP_SUMMARY
+
   query-cache:
     needs: run-notebook
     if: always()
