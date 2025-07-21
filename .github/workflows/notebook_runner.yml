@@ -574,8 +574,8 @@ jobs:
           docker system prune -f
 
     outputs:
-      results_${{ matrix.NOTEBOOK_FILENAME }}:
-        description: "Test results for ${{ matrix.NOTEBOOK_FILENAME }}"
+      results:
+        description: "Test results"
         value: ${{ steps.run-pytest.outputs.test_results_json }}
 
   summary:
