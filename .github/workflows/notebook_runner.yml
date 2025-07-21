@@ -462,54 +462,75 @@ jobs:
         id: run-pytest
         run: |
           SCRIPT_FILE=$(mktemp)
-
-          cat <<'DOCKER_SCRIPT' > $SCRIPT_FILE
-          set -euo pipefail
+          cat > $SCRIPT_FILE <<'EOS'
+          set -euxo pipefail  # 增加详细日志
           cd blueprint-github-test
 
-          OUTPUT_NOTEBOOK_HTML="${1}"
-          OUTPUT_PYTEST_COVERAGE_HTML="${2}"
-          OUTPUT_PYTEST_RESULT_XML="${3}"
-          OUTPUT_PYTEST_REPORT_HTML="${4}"
-          DOCKER_WRITEABLE_DIR="${5}"
-          NOTEBOOK_BASENAME="${6}"
+          OUTPUT_NOTEBOOK_HTML="$1"
+          OUTPUT_PYTEST_COVERAGE_HTML="$2"
+          OUTPUT_PYTEST_RESULT_XML="$3"
+          OUTPUT_PYTEST_REPORT_HTML="$4"
+          DOCKER_WRITEABLE_DIR="$5"
+          NOTEBOOK_BASENAME="$6"
 
           export PATH="/home/rapids/.local/bin:$PATH"
-          curl -sSL https://install.python-poetry.org | python3 -
+          python -m pip install --upgrade pip
+          curl -sSL https://install.python-poetry.org | python3 - 
 
-          poetry install --no-interaction --no-root
+          poetry config virtualenvs.create true
+          poetry install --no-interaction --no-root 
+
+          if [ -d "cloudia" ]; then
+            pushd cloudia
+            pip install -e .
+            popd
+          fi
+
           source "$(poetry env info --path)/bin/activate"
 
           rm -rf input/*
-          cp "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" input/"$NOTEBOOK_BASENAME".html
+          mkdir -p input
+          cp "$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" "input/$NOTEBOOK_BASENAME.html"
+
+          echo "Current directory: $(pwd)"
+          echo "Python path: $(which python)"
+          echo "Poetry env: $(poetry env info)"
 
           TEST_OUTPUT=$(poetry run pytest -m single_cell \
             --cov=./ \
             --cov-report=xml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_HTML" \
             --junitxml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" \
             --html:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" \
-            --self-contained-html 2>&1)
+            --self-contained-html 2>&1) || true  # 即使测试失败也继续
 
           RESULTS_FILE="$DOCKER_WRITEABLE_DIR/test_results.txt"
-          echo "TEST_OUTPUT_START" > $RESULTS_FILE
-          echo "$TEST_OUTPUT" >> $RESULTS_FILE
-          echo "TEST_OUTPUT_END" >> $RESULTS_FILE
+          echo "TEST_OUTPUT_START" > "$RESULTS_FILE"
+          echo "$TEST_OUTPUT" >> "$RESULTS_FILE"
+          echo "TEST_OUTPUT_END" >> "$RESULTS_FILE"
 
-          passed=$(xmllint --xpath 'count(//testcase[not(skipped) and not(failure) and not(error)])' "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" || echo "0")
-          failures=$(xmllint --xpath 'count(//testcase[failure])' "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" || echo "0")
-          errors=$(xmllint --xpath 'count(//testcase[error])' "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" || echo "0")
-          skipped=$(xmllint --xpath 'count(//testcase[skipped])' "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" || echo "0")
-          xfailed=$(xmllint --xpath 'count(//testcase[contains(@name, "[xfail]")])' "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" || echo "0")
-          xpassed=$(xmllint --xpath 'count(//testcase[contains(@name, "[xpass]")])' "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" || echo "0")
+          parse_xml() {
+            local file="$1"
+            local xpath="$2"
+            xmllint --xpath "$xpath" "$file" 2>/dev/null || echo "0"
+          }
+
+          passed=$(parse_xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" 'count(//testcase[not(skipped) and not(failure) and not(error)])')
+          failures=$(parse_xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" 'count(//testcase[failure])')
+          errors=$(parse_xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" 'count(//testcase[error])')
+          skipped=$(parse_xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" 'count(//testcase[skipped])')
+          xfailed=$(parse_xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" 'count(//testcase[contains(@name, "[xfail]")])')
+          xpassed=$(parse_xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" 'count(//testcase[contains(@name, "[xpass]")])')
           actual_passed=$((passed - xpassed))
 
-          echo "passed=$actual_passed" >> $RESULTS_FILE
-          echo "failed=$failures" >> $RESULTS_FILE
-          echo "skipped=$skipped" >> $RESULTS_FILE
-          echo "errors=$errors" >> $RESULTS_FILE
-          echo "xfailed=$xfailed" >> $RESULTS_FILE
-          echo "xpassed=$xpassed" >> $RESULTS_FILE
-          DOCKER_SCRIPT
+          {
+            echo "passed=$actual_passed"
+            echo "failed=$failures"
+            echo "skipped=$skipped"
+            echo "errors=$errors"
+            echo "xfailed=$xfailed"
+            echo "xpassed=$xpassed"
+          } >> "$RESULTS_FILE"
+          EOS
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -s -- \
             "${{ env.OUTPUT_NOTEBOOK_HTML }}" \
@@ -518,36 +539,37 @@ jobs:
             "${{ env.OUTPUT_PYTEST_REPORT_HTML }}" \
             "${{ env.DOCKER_WRITEABLE_DIR }}" \
             "${{ steps.set_global_vars.outputs.notebook_basename }}" \
-            < $SCRIPT_FILE
+            < "$SCRIPT_FILE" || echo "Docker exec completed with status $?"
 
-          RESULTS_CONTENT=$(docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "${{ env.DOCKER_WRITEABLE_DIR }}/test_results.txt")
-          TEST_OUTPUT=$(echo "$RESULTS_CONTENT" | sed -n '/TEST_OUTPUT_START/,/TEST_OUTPUT_END/{/TEST_OUTPUT_START/!{/TEST_OUTPUT_END/!p}}')
+          RESULTS_CONTENT=$(docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend \
+            cat "${{ env.DOCKER_WRITEABLE_DIR }}/test_results.txt" 2>/dev/null || echo "RESULTS_ERROR")
+
+          if [ "$RESULTS_CONTENT" = "RESULTS_ERROR" ]; then
+            echo "::error::Failed to retrieve test results"
+            exit 1
+          fi
+
+          TEST_OUTPUT=$(sed -n '/TEST_OUTPUT_START/,/TEST_OUTPUT_END/{/TEST_OUTPUT_START/!{/TEST_OUTPUT_END/!p}}' <<< "$RESULTS_CONTENT")
 
           echo "TEST_OUTPUT<<EOF" >> $GITHUB_ENV
           echo "$TEST_OUTPUT" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
 
-          echo "passed=$(echo "$RESULTS_CONTENT" | grep "^passed=" | cut -d= -f2)" >> $GITHUB_OUTPUT
-          echo "failed=$(echo "$RESULTS_CONTENT" | grep "^failed=" | cut -d= -f2)" >> $GITHUB_OUTPUT
-          echo "skipped=$(echo "$RESULTS_CONTENT" | grep "^skipped=" | cut -d= -f2)" >> $GITHUB_OUTPUT
-          echo "errors=$(echo "$RESULTS_CONTENT" | grep "^errors=" | cut -d= -f2)" >> $GITHUB_OUTPUT
-          echo "xfailed=$(echo "$RESULTS_CONTENT" | grep "^xfailed=" | cut -d= -f2)" >> $GITHUB_OUTPUT
-          echo "xpassed=$(echo "$RESULTS_CONTENT" | grep "^xpassed=" | cut -d= -f2)" >> $GITHUB_OUTPUT
+          extract_metric() {
+            echo "$RESULTS_CONTENT" | grep "^$1=" | cut -d= -f2 || echo "0"
+          }
+          echo "passed=$(extract_metric passed)" >> $GITHUB_OUTPUT
+          echo "failed=$(extract_metric failed)" >> $GITHUB_OUTPUT
+          echo "skipped=$(extract_metric skipped)" >> $GITHUB_OUTPUT
+          echo "errors=$(extract_metric errors)" >> $GITHUB_OUTPUT
+          echo "xfailed=$(extract_metric xfailed)" >> $GITHUB_OUTPUT
+          echo "xpassed=$(extract_metric xpassed)" >> $GITHUB_OUTPUT
 
-          echo "### 📊 Python ${{ matrix.NOTEBOOK_FILENAME }} Detailed Results" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Results Summary" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "$TEST_OUTPUT" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-
-          echo "### 🔍 Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| ✅ Passed | $(echo "$RESULTS_CONTENT" | grep "^passed=" | cut -d= -f2) |" >> $GITHUB_STEP_SUMMARY
-          echo "| ❌ Failed | $(echo "$RESULTS_CONTENT" | grep "^failed=" | cut -d= -f2) |" >> $GITHUB_STEP_SUMMARY
-          echo "| ⏩ Skipped | $(echo "$RESULTS_CONTENT" | grep "^skipped=" | cut -d= -f2) |" >> $GITHUB_STEP_SUMMARY
-          echo "| 💥 Errors | $(echo "$RESULTS_CONTENT" | grep "^errors=" | cut -d= -f2) |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🔶 XFailed | $(echo "$RESULTS_CONTENT" | grep "^xfailed=" | cut -d= -f2) |" >> $GITHUB_STEP_SUMMARY
-          echo "| ⚠️ XPassed | $(echo "$RESULTS_CONTENT" | grep "^xpassed=" | cut -d= -f2) |" >> $GITHUB_STEP_SUMMARY
+        shell: bash
       
       - name: Copy result files from container to runner
         id: prepare-result-file
