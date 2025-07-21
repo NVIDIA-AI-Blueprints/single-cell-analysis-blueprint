@@ -297,8 +297,8 @@ jobs:
 
           pip install jupyter papermill pytest-html pytest-cov
 
-          sudo apt-get update
-          sudo apt-get install -y libxml2-utils
+          apt-get update
+          apt-get install -y libxml2-utils
 
           echo '=== Verifying installations ==='
           pip list
@@ -372,6 +372,12 @@ jobs:
             fi
             echo "===============Check file====================="
           '
+
+      # - name: Debug --- Setup tmate debug session
+      #   uses: mxschmitt/action-tmate@v3
+      #   with:
+      #     limit-access-to-actor: true
+      #     timeout-minutes: 60
 
       # - name: Install Poetry/Dependencies and execute pytest
       #   id: run-pytest
