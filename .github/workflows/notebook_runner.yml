@@ -253,8 +253,14 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" logs --no-color --tail=200 > docker-logs.txt
           head -c 500000 docker-logs.txt
 
-      - name: Make sure container is ready for testing
+      - name: Ensure container is ready for testing
         run: |
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -u root backend bash -c '
+            apt-get update
+            apt-get install -y libxml2-utils
+            apt-get clean
+          '
+
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash <<'EOF'
           set -euxo pipefail
 
@@ -296,9 +302,6 @@ jobs:
           done         
 
           pip install jupyter papermill pytest-html pytest-cov
-
-          apt-get update
-          apt-get install -y libxml2-utils
 
           echo '=== Verifying installations ==='
           pip list
