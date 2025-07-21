@@ -458,21 +458,21 @@ jobs:
       #       echo "xpassed=$xpassed" >> $GITHUB_OUTPUT
       #     '
 
-      # 
-      
       - name: Install Poetry/Dependencies and execute pytest
         id: run-pytest
         run: |
           SCRIPT_FILE=$(mktemp)
+
           cat <<'DOCKER_SCRIPT' > $SCRIPT_FILE
           set -euo pipefail
           cd blueprint-github-test
 
-          OUTPUT_NOTEBOOK_HTML="$OUTPUT_NOTEBOOK_HTML"
-          OUTPUT_PYTEST_COVERAGE_HTML="$OUTPUT_PYTEST_COVERAGE_HTML"
-          OUTPUT_PYTEST_RESULT_XML="$OUTPUT_PYTEST_RESULT_XML"
-          OUTPUT_PYTEST_REPORT_HTML="$OUTPUT_PYTEST_REPORT_HTML"
-          DOCKER_WRITEABLE_DIR="$DOCKER_WRITEABLE_DIR"
+          OUTPUT_NOTEBOOK_HTML="${1}"
+          OUTPUT_PYTEST_COVERAGE_HTML="${2}"
+          OUTPUT_PYTEST_RESULT_XML="${3}"
+          OUTPUT_PYTEST_REPORT_HTML="${4}"
+          DOCKER_WRITEABLE_DIR="${5}"
+          NOTEBOOK_BASENAME="${6}"
 
           export PATH="/home/rapids/.local/bin:$PATH"
           curl -sSL https://install.python-poetry.org | python3 -
@@ -511,9 +511,16 @@ jobs:
           echo "xpassed=$xpassed" >> $RESULTS_FILE
           DOCKER_SCRIPT
 
-          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -s < $SCRIPT_FILE
+          docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -s -- \
+            "${{ env.OUTPUT_NOTEBOOK_HTML }}" \
+            "${{ env.OUTPUT_PYTEST_COVERAGE_HTML }}" \
+            "${{ env.OUTPUT_PYTEST_RESULT_XML }}" \
+            "${{ env.OUTPUT_PYTEST_REPORT_HTML }}" \
+            "${{ env.DOCKER_WRITEABLE_DIR }}" \
+            "${{ steps.set_global_vars.outputs.notebook_basename }}" \
+            < $SCRIPT_FILE
 
-          RESULTS_CONTENT=$(docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "$DOCKER_WRITEABLE_DIR/test_results.txt")
+          RESULTS_CONTENT=$(docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend cat "${{ env.DOCKER_WRITEABLE_DIR }}/test_results.txt")
           TEST_OUTPUT=$(echo "$RESULTS_CONTENT" | sed -n '/TEST_OUTPUT_START/,/TEST_OUTPUT_END/{/TEST_OUTPUT_START/!{/TEST_OUTPUT_END/!p}}')
 
           echo "TEST_OUTPUT<<EOF" >> $GITHUB_ENV
@@ -541,7 +548,7 @@ jobs:
           echo "| 💥 Errors | $(echo "$RESULTS_CONTENT" | grep "^errors=" | cut -d= -f2) |" >> $GITHUB_STEP_SUMMARY
           echo "| 🔶 XFailed | $(echo "$RESULTS_CONTENT" | grep "^xfailed=" | cut -d= -f2) |" >> $GITHUB_STEP_SUMMARY
           echo "| ⚠️ XPassed | $(echo "$RESULTS_CONTENT" | grep "^xpassed=" | cut -d= -f2) |" >> $GITHUB_STEP_SUMMARY
-
+      
       - name: Copy result files from container to runner
         id: prepare-result-file
         if: >
