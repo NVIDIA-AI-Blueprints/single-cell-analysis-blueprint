@@ -1,24 +1,24 @@
 name: Single-cell notebooks runner
-run-name: Single-cell notebooks runner --- triggered by ${{ github.actor }} 
+run-name: Single-cell notebooks runner --- triggered by ${{ github.actor }}
 
 on:
   pull_request: {}
   push:
-    branches: [ main, master, staging, release/* ]
+    branches: [main, master, staging, release/*]
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Deploy Environment'
+        description: "Deploy Environment"
         required: true
-        default: 'staging'
+        default: "staging"
       debug_from_step:
         description: 'Start from step (e.g. "load-docker")'
         required: false
-        default: ''
+        default: ""
       target_branch:
-        description: 'Branch to run on (e.g. main)'
+        description: "Branch to run on (e.g. main)"
         required: false
-        default: ''
+        default: ""
 
 permissions:
   checks: write
@@ -34,15 +34,16 @@ jobs:
     environment: dev
     strategy:
       matrix:
-        NOTEBOOK_FILENAME: [
-          "01_scRNA_analysis_preprocessing.ipynb",
-          "02_scRNA_analysis_extended.ipynb",
-          "03_scRNA_analysis_with_pearson_residuals.ipynb",
-          "04_scRNA_analysis_dask_out_of_core.ipynb",
-          "05_scRNA_analysis_multi_GPU.ipynb",
-          "06_scRNA_analysis_90k_brain_example.ipynb",
-          "07_scRNA_analysis_1.3M_brain_example.ipynb"
-        ]
+        NOTEBOOK_FILENAME:
+          [
+            "01_scRNA_analysis_preprocessing.ipynb",
+            "02_scRNA_analysis_extended.ipynb",
+            "03_scRNA_analysis_with_pearson_residuals.ipynb",
+            "04_scRNA_analysis_dask_out_of_core.ipynb",
+            "05_scRNA_analysis_multi_GPU.ipynb",
+            "06_scRNA_analysis_90k_brain_example.ipynb",
+            "07_scRNA_analysis_1.3M_brain_example.ipynb",
+          ]
       max-parallel: 4
       fail-fast: false
     env:
@@ -64,7 +65,7 @@ jobs:
       OUTPUT_PYTEST_RESULT_XML: "pytest_result_${{ matrix.NOTEBOOK_FILENAME }}.xml"
       OUTPUT_PYTEST_REPORT_HTML: "pytest_report_${{ matrix.NOTEBOOK_FILENAME }}.html"
       ARTIFACT_DIR: "${{ github.workspace }}/test-results/${{ matrix.NOTEBOOK_FILENAME }}"
-    steps:  
+    steps:
       - name: Set global vars
         id: set_global_vars
         run: |
@@ -105,15 +106,15 @@ jobs:
       - name: Checkout Test repository
         uses: actions/checkout@v4
         with:
-          repository: 'NVIDIA-AI-Blueprints/blueprint-github-test'
+          repository: "NVIDIA-AI-Blueprints/blueprint-github-test"
           token: ${{ secrets.JOHNNY_DEV_GH_TOKEN }}
           path: blueprint-github-test
           fetch-depth: 1
-        
+
       - uses: ./.github/actions/setup-env
         with:
-          python-version: '3.12'
-          check-disk: 'false'
+          python-version: "3.12"
+          check-disk: "false"
 
       - name: Setup docker env
         env:
@@ -155,14 +156,14 @@ jobs:
           key: "${{ steps.set_global_vars.outputs.cache_key }}"
           restore-keys: |
             ${{ runner.os }}-docker-
-      
+
       - name: Debug info
         run: |
           echo "Primary Key: ${{ steps.cache-docker-image.outputs.cache-primary-key || 'N/A' }}"
           echo "Cache Hit: ${{ steps.cache-docker-image.outputs.cache-hit || 'false' }}"
           echo "Cache Path: ${{ env.DOCKER_WRITEABLE_DIR }}/${{ env.DOCKER_CACHE_DIR }}"
           ls -la ${{ env.DOCKER_WRITEABLE_DIR }}/${{ env.DOCKER_CACHE_DIR }}
-        
+
       - name: Load cached docker image
         if: steps.cache-docker-image.outputs.cache-hit == 'true'
         run: |
@@ -191,7 +192,7 @@ jobs:
             echo "[Info] Image already exists, skipping pull."
             exit 0
           fi
-          
+
           echo "[Info]: the docker image cache does NOT exists, just pull it from remote"
           if ! docker pull "$DOCKER_IMG_NAME:$DOCKER_IMG_TAG"; then
             echo "Pull failed, retrying..." 
@@ -203,14 +204,14 @@ jobs:
           fi
           echo "[Info]: the docker image cache does NOT exists, just pull it from remote --- Done"
 
-          
+
           mkdir -p ${DOCKER_CACHE_DIR}
           echo "[Info]: the docker image pull done, save it to cache path now"
           docker save $DOCKER_IMG_NAME:$DOCKER_IMG_TAG > ${DOCKER_CACHE_DIR}/${DOCKER_IMG_CACHE_NAME}.tar
           docker save -o ${DOCKER_CACHE_DIR}/${DOCKER_IMG_CACHE_NAME}.tar $DOCKER_IMG_NAME:$DOCKER_IMG_TAG
           ls -alh ${DOCKER_CACHE_DIR}
           echo "[Info]: the docker image pull done, save it to cache path now --- Done"
-          
+
           end_time=$(date +%s)
           echo "Execution time: $((end_time - start_time)) seconds"
         timeout-minutes: 20
@@ -225,8 +226,8 @@ jobs:
           start_time=$(date +%s)
           docker images -a
           echo "Docker compose will use file: $DOCKER_COMPOSE_FILE"
-          
-          
+
+
           DOCKER_IMG_TAG="${{ env.DOCKER_IMG_TAG }}"
           export DOCKER_IMG_TAG=$DOCKER_IMG_TAG
           export NOTEBOOKS_HOST_PATH="${{ github.workspace }}"
@@ -240,7 +241,7 @@ jobs:
           set -e
           export COMPOSE_HTTP_TIMEOUT=300
           docker compose --verbose -f "$DOCKER_COMPOSE_FILE" up -d --wait --force-recreate
-          
+
           end_time=$(date +%s)
           echo "Execution time: $((end_time - start_time)) seconds"
 
@@ -319,7 +320,7 @@ jobs:
           docker compose -f "$DOCKER_COMPOSE_FILE" exec backend bash <<EOF
           set -euxo pipefail
           export PYTHONUNBUFFERED=1
-          
+
           papermill "${NOTEBOOK_RELATIVED_DIR}/${NOTEBOOK_FILENAME}" "${DOCKER_WRITEABLE_DIR}/${OUTPUT_NOTEBOOK}" \
             --log-output \
             --log-level DEBUG \
@@ -369,7 +370,7 @@ jobs:
             fi
             echo "===============Check file====================="
           '
-          
+
       # - name: Install Poetry/Dependencies and execute pytest
       #   id: run-pytest
       #   run: |
@@ -382,7 +383,7 @@ jobs:
       #       OUTPUT_PYTEST_RESULT_XML="${{ env.OUTPUT_PYTEST_RESULT_XML }}"
       #       OUTPUT_PYTEST_REPORT_HTML="${{ env.OUTPUT_PYTEST_REPORT_HTML }}"
       #       DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
-          
+
       #       export PATH="/home/rapids/.local/bin:$PATH"
       #       curl -sSL https://install.python-poetry.org | python3 -
 
@@ -406,7 +407,7 @@ jobs:
       #         --junitxml="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" \
       #         --html"="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" \
       #         --self-contained-html 2>&1)
-            
+
       #       echo "===============Check file====================="
       #       ls -alh $DOCKER_WRITEABLE_DIR
       #       echo "===============Check file====================="
@@ -427,7 +428,7 @@ jobs:
       #       echo '```' >> $GITHUB_STEP_SUMMARY
       #       echo "$TEST_OUTPUT" >> $GITHUB_STEP_SUMMARY
       #       echo '```' >> $GITHUB_STEP_SUMMARY
-        
+
       #       echo "### 🔍 Test Summary" >> $GITHUB_STEP_SUMMARY
       #       echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
       #       echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -510,7 +511,7 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "$TEST_OUTPUT" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-  
+
             echo "### 🔍 Test Summary" >> $GITHUB_STEP_SUMMARY
             echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
             echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -528,7 +529,7 @@ jobs:
             echo "xfailed=$xfailed" >> $GITHUB_OUTPUT
             echo "xpassed=$xpassed" >> $GITHUB_OUTPUT
           '
-                             
+
       - name: Copy result files from container to runner
         id: prepare-result-file
         if: >
@@ -554,7 +555,6 @@ jobs:
           echo "===========Show the contents of dir: $ARTIFACT_DIR================="
           ls -al "$ARTIFACT_DIR"
 
-
       - name: Upload the result notebook as artifact
         if: steps.prepare-result-file.outcome == 'success'
         uses: actions/upload-artifact@v4
@@ -562,7 +562,7 @@ jobs:
           name: ${{ steps.set_global_vars.outputs.artifact_name }}
           path: ${{ env.ARTIFACT_DIR }}/
           retention-days: 30
-          if-no-files-found: error 
+          if-no-files-found: error
 
       - name: Stop containers
         if: ${{ always() }}
