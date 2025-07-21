@@ -65,6 +65,10 @@ jobs:
       OUTPUT_PYTEST_RESULT_XML: "pytest_result_${{ matrix.NOTEBOOK_FILENAME }}.xml"
       OUTPUT_PYTEST_REPORT_HTML: "pytest_report_${{ matrix.NOTEBOOK_FILENAME }}.html"
       ARTIFACT_DIR: "${{ github.workspace }}/test-results/${{ matrix.NOTEBOOK_FILENAME }}"
+    outputs:
+      results:
+        description: "Test results"
+        value: ${{ steps.run-pytest.outputs.test_results_json }}
     steps:
       - name: Set global vars
         id: set_global_vars
@@ -573,10 +577,6 @@ jobs:
         run: |
           docker system prune -f
 
-    outputs:
-      results:
-        description: "Test results"
-        value: ${{ steps.run-pytest.outputs.test_results_json }}
 
   summary:
     needs: run-notebook
