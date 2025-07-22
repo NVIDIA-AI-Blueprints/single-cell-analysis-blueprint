@@ -9,7 +9,7 @@ python/            @<org>/<repo>-python-codeowners
 **/cmake/          @<org>/<repo>-cmake-codeowners
 
 #build/ops code owners
-.github/           @<org>/ops-codeowners 
+.github/           @<org>/ops-codeowners
 ci/                @<org>/ops-codeowners
 conda/             @<org>/ops-codeowners
 **/Dockerfile      @<org>/ops-codeowners

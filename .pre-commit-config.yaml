@@ -1,0 +1,46 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-ast
+      - id: check-byte-order-marker
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-yaml
+      - id: debug-statements
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  - repo: https://github.com/psf/black
+    rev: 23.7.0
+    hooks:
+      - id: black
+        name: black
+        description: The uncompromising Python code formatter
+        entry: black
+        language: system
+        types: [python]
+        args: [--line-length=88]
+
+  - repo: local
+    hooks:
+      - id: forbid-non-ascii
+        name: Forbid non-ASCII characters in comments
+        entry: bash -c 'for file in "$@"; do if grep -P "[^\x00-\x7F]" "$file" | grep -q "^ *#"; then echo "Found non-ASCII characters in comments in $file"; exit 1; fi; done'
+        language: system
+        types: [python]
+        pass_filenames: true
+
+  - repo: local
+    hooks:
+      - id: header-check
+        name: Check for NVIDIA header
+        entry: bash -c 'for file in "$@"; do head -1 "$file" | grep -q "This is NVIDIA proprietary code" || { echo "Missing NVIDIA header in $file"; exit 1; }; done'
+        language: system
+        types: [python]
+        pass_filenames: true

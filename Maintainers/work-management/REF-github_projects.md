@@ -1,7 +1,7 @@
 # Issues
 
 ## Overview
-__PROJECT_NAME__ Makes heavy use of the new and significantly enhanced [GitHub Projects](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects). 
+__PROJECT_NAME__ Makes heavy use of the new and significantly enhanced [GitHub Projects](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects).
 
 Their documentation is very good, and for a less opinionated overview we recommend exploring the docs (linked above).
 
@@ -39,9 +39,9 @@ To Projects, we add the following custom fields:
   - Ex: Epic, Category, Dates
 
 > **Note**
-> 
+>
 > Projects can have any number of custom fields, however it is recommended to limit to as few as necessary.
-> This is because custom fields from one Project do not persist to another Project, so that information can only be accessed in a limited way. 
+> This is because custom fields from one Project do not persist to another Project, so that information can only be accessed in a limited way.
 
 ## Project Views
 By default we recommend 5 base views in the Project
@@ -51,4 +51,3 @@ By default we recommend 5 base views in the Project
 - Roadmap - this view shows issues grouped by release/backlog queue
 - Epics - this view groups by `Tracks-By`, a feature of task-lists, giving a higher level view to the work being done
 - Projects can have up to 42 views, and they are URL-linkable so links to specific views can easily be created
-

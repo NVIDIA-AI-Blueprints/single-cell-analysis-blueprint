@@ -36,7 +36,7 @@ git clone https://github.com/clara-parabricks-workflows/single-cell-analysis-blu
 ```
 
 ### 3. Install Packaging Environment Software:
-RAPIDS can be installed using Pip, Conda, or Docker.  To replicate the same expereince as in the Launchable, it is recommended to use Docker for installation.  
+RAPIDS can be installed using Pip, Conda, or Docker.  To replicate the same expereince as in the Launchable, it is recommended to use Docker for installation.
 <i class="fas fa-download text-purple"></i> **3.1 Get Docker:** Use the code below to download and install Docker on your system
 ```
 curl -fsSL https://get.docker.com -o get-docker.sh
@@ -54,7 +54,7 @@ docker run --gpus all --pull always --rm -it \
 
 
 ### 4. Install the Extra RAPIDS-singlecell Libraries into the Running Container
-Once the container is running, 
+Once the container is running,
 - if the provisioned system is an external cloud or workstation, please use a web browser to navigate to the system's IP address and it's port 8888.  Example `http://192.168.1.2:8888`
 - if the provisioned system is your sustem, then use `http://127.0.0.1:8888`.
 
@@ -73,6 +73,6 @@ For alternate installation instructions, please refer to the [RAPIDS-singlecell 
 3. If you **Stop** the instance, all the data on the main storage will be retained for the next time you start it.
 4. To conserve GPU memory, please remember to shut down your completed notebook's kernel before starting a new notebook.
 5. If your data download gets interrupted, please delete the files you intended to download and try again.
-6. The Standard RSC Instance (L40s) has 128GB of space (~90GB user usable).    
+6. The Standard RSC Instance (L40s) has 128GB of space (~90GB user usable).
 7. The Large RSC Instance (8x H100) has the same 128GB of space as the Standard RSC Instance, but there is a special `data` folder is mapped to a 1.12TB disk.  Data retention on that disk (in that folder) is not guaranteed.  YMMV.
 8. If using an ARM based system, please conda install `compile` before installing `RAPIDS-singlecell` so that you can build `scikit-misc` from source/

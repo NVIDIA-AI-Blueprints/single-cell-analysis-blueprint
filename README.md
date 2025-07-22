@@ -13,8 +13,8 @@ If you like these notebooks and this GPU accelerated capability, and want to sup
 
 The quickest way to use these blueprints is to use one of our pre-configured [NVIDIA Brev](https://console.brev.dev/) reseources.
 
-1. Select your resource size, and click "Deploy Now":  
-  * For a **Standard Instance** (L40s), click here: [![ Click here to deploy the RAPIDS Singlecell Launchable.](https://brev-assets.s3.us-west-1.amazonaws.com/nv-lb-dark.svg)](https://brev.nvidia.com/launchable/deploy?launchableID=env-2xn8JayrpXlBwGXkKASSomq6gXi)  
+1. Select your resource size, and click "Deploy Now":
+  * For a **Standard Instance** (L40s), click here: [![ Click here to deploy the RAPIDS Singlecell Launchable.](https://brev-assets.s3.us-west-1.amazonaws.com/nv-lb-dark.svg)](https://brev.nvidia.com/launchable/deploy?launchableID=env-2xn8JayrpXlBwGXkKASSomq6gXi)
   * For a **Large Instance** (8x H100), click here: [![ Click here to deploy.](https://brev-assets.s3.us-west-1.amazonaws.com/nv-lb-dark.svg)](https://brev.nvidia.com/launchable/deploy?launchableID=env-2xn9bEVtfQgLQXHpJUlzESILpfV)
 
 2. Click **Deploy Launchable** on the Brev.dev Launchable page
@@ -22,12 +22,12 @@ The quickest way to use these blueprints is to use one of our pre-configured [NV
     <img src="https://github.com/NVIDIA-AI-Blueprints/single-cell-analysis-blueprint/raw/main/assets/deploy_brev.png" alt="deploy_brev" width="70%"/>
 
 
-   
+
 3. Wait for the Container status show **Ready** (can take up to 8 minutes).  Then, click **Access GPU**
 
     <img src="https://github.com/NVIDIA-AI-Blueprints/single-cell-analysis-blueprint/raw/main/assets/go_on_green.png" alt="go_on_green" width="70%"/>
 
-   
+
 4. On the **Instance** page, click **Open Notebook**
 
     <img src="https://github.com/NVIDIA-AI-Blueprints/single-cell-analysis-blueprint/raw/main/assets/open_notebook.png" alt="open_notebook" width="70%"/>
@@ -37,7 +37,7 @@ You should drop into a fully installed and populated JupyterLab environment.  Op
 
 ## Overview
 
-This repository contains a diverse set of notebooks to help get anyone started using RAPIDS-singlecell developed by scverse. 
+This repository contains a diverse set of notebooks to help get anyone started using RAPIDS-singlecell developed by scverse.
 
 ![layout architecture](https://github.com/NVIDIA-AI-Blueprints/single-cell-analysis-blueprint/raw/main/assets/scdiagram.png)
 
@@ -47,13 +47,13 @@ For those who are new to doing basic analysis for single cell data, the end to e
 
 | Notebook         | Description |Min GPU Size /<br>Instance |
 |------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|--|
-| [01_scRNA_analysis_preprocessing.ipynb](notebooks/01_scRNA_analysis_preprocessing.ipynb)   | End to end workflow, where we understand the cells, run ETL on the data set then visiualize and explore the results. <br>This tutorial is good for all users | 24GB /<br>Standard RSC Instance | 
+| [01_scRNA_analysis_preprocessing.ipynb](notebooks/01_scRNA_analysis_preprocessing.ipynb)   | End to end workflow, where we understand the cells, run ETL on the data set then visiualize and explore the results. <br>This tutorial is good for all users | 24GB /<br>Standard RSC Instance |
 | [02_scRNA_analysis_extended.ipynb](notebooks/02_scRNA_analysis_extended)   | This notebook continues from the outputs of [01_scRNA_analysis_preprocessing.ipynb](notebooks/01_scRNA_analysis_preprocessing.ipynb) as an overview of methods that can be used to investigate transcriptional regulation | 24GB /<br>Standard RSC Instance |
 | [03_scRNA_analysis_with_pearson_residuals.ipynb](notebooks/03_scRNA_analysis_with_pearson_residuals.ipynb)  | End to end workflow, like [01_scRNA_analysis_preprocessing.ipynb](notebooks/01_scRNA_analysis_preprocessing.ipynb), but uses pearson residuals for normalization. | 24GB /<br>Standard RSC Instance |
 | [04_scRNA_analysis_dask_out_of_core.ipynb](notebooks/04_scRNA_analysis_dask_out_of_core.ipynb) | In this notebook, we show the scalability of the analysis toof up to 11M cells easily by using Dask.<br>**Requires a 48GB GPU** | 48GB /<br>Standard RSC Instance |
 | [05_scRNA_analysis_multi_GPU.ipynb](notebooks/05_scRNA_analysis_multi_GPU.ipynb) | This notebook enhances the 11M cell dataset analysis with Dask without exceeding memory limits.  <br>It fully scales to utilize all available GPUs, uses chunk-based execution, and efficiently manages memory<br>**Requires 8x H100s or better.  For all other GPUs systems, please run [04_scRNA_analysis_dask_out_of_core.ipynb](notebooks/04_scRNA_analysis_dask_out_of_core.ipynb) instead**| 8x 80GB /<br>Large RSC Instance |
 | [06_scRNA_analysis_90k_brain_example.ipynb](notebooks/06_scRNA_analysis_90k_brain_example.ipynb) | In this notebook, show diversity in capability by run a similar workflow to [01_scRNA_analysis_preprocessing.ipynb](notebooks/01_scRNA_analysis_preprocessing.ipynb), but on brain cells | 24GB /<br>Standard RSC Instance |
-| [07_scRNA_analysis_1.3M_brain_example.ipynb](notebooks/07_scRNA_analysis_1.3M_brain_example.ipynb) | In this notebook, we scale up the analysis of [06_scRNA_analysis_90k_brain_example.ipynb](notebooks/06_scRNA_analysis_90k_brain_example.ipynb) to 1 million brain cells.<br>**Requires an 80GB GPU, like an H100** |  80GB /<br>Large RSC Instance |  
+| [07_scRNA_analysis_1.3M_brain_example.ipynb](notebooks/07_scRNA_analysis_1.3M_brain_example.ipynb) | In this notebook, we scale up the analysis of [06_scRNA_analysis_90k_brain_example.ipynb](notebooks/06_scRNA_analysis_90k_brain_example.ipynb) to 1 million brain cells.<br>**Requires an 80GB GPU, like an H100** |  80GB /<br>Large RSC Instance |
 
 
 You can find more detail on each notebook in the [Notebooks README](notebooks/README.md).

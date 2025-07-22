@@ -32,4 +32,3 @@ runs:
       run: |
         echo "Python: $(python --version || echo 'Not installed')"
       shell: bash
-    

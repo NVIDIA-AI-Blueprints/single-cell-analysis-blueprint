@@ -15,7 +15,7 @@ Community | Developers
 ## Create an issue
 
 > **Warning**
-> 
+>
 > Before creating an issue, please search existing open & closed issues and pull requests to see if your issue has already been addressed.
 
 Follow the steps [here](https://help.github.com/articles/creating-an-issue/) to start the process of creating an issue.

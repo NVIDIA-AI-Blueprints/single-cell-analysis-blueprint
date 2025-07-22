@@ -34,5 +34,3 @@ services:
       --NotebookApp.token='' --NotebookApp.password=''
       --notebook-dir=/home/rapids/notebooks"
     restart: unless-stopped
-
- 

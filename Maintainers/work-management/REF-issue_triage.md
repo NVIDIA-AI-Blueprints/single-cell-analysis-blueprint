@@ -18,7 +18,7 @@ __PROJECT_NAME__ is continuously triaging new issues and re-triaging existing is
 
 ## Triage process
 
-### Timing 
+### Timing
 
 - Label and prioritize new issues within **5 business days**
 - Re-prioritize existing issues **every week** using the project's issue tracking boards
@@ -33,7 +33,7 @@ For each project there is one GitHub Project that contains multiple views, and c
 See [Release Board](maintainers/work-management/github_projects.md) for a deep dive on the project boards.
 
 > **Note**
-> 
+>
 > In leveraging the tracking boards for issue management, project leads can _schedule_ issues by placing them in the appropriate release and then _prioritize_ issues by either a project column, label, or dragging & sorting the issues from highest priority at the top of the column to lowest at the bottom.
 
 By maintaining the issues in the GitHub Project, filers and the community will see updates to the issue and can get a sense of when they can expect feedback. For example, on a given issue a user may see the release set as `Product Backlog`. This allows the filer or the community to comment on if they believe the issue should be addressed faster.
@@ -84,7 +84,7 @@ __PROJECT_LEAD: DEFINE WHO/WHEN HERE__
 Developers should be assigned to issues they are responsible for delivering. Try to limit overcommitting developers. A general rule is to limit active development to **5 or fewer** issues.
 
 > **Warning**
-> 
+>
 > This is crucial for community involvement as an assigned issue looks like the issue is covered.
 
 ### Link to PR

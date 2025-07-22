@@ -8,19 +8,19 @@ runs:
       run: |
         sudo apt update && sudo apt install -y pciutils
       shell: bash
-    
+
     - name: Check System Info
       run: |
         echo "=== OS Info ==="
         uname -a  # Linux/macOS
         cat /etc/os-release
-        
+
         echo "=== CPU Info ==="
         lscpu || sysctl -n machdep.cpu.brand_string  # Linux | macOS
-        
+
         echo "=== Memory Info ==="
         free -h || vm_stat  # Linux | macOS
-        
+
         echo "=== Disk Space ==="
         df -h  # Linux/macOS
       shell: bash
@@ -29,7 +29,7 @@ runs:
       run: |
         echo "===== 1. Check PCI Devices (GPU) ====="
         sudo lspci | grep -i vga
-        
+
         echo "===== 2. Check NVIDIA GPU (if exists) ====="
         if command -v nvidia-smi &> /dev/null; then
           nvidia-smi
