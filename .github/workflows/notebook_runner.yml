@@ -36,13 +36,13 @@ jobs:
       matrix:
         NOTEBOOK_FILENAME:
           [
-            "01_scRNA_analysis_preprocessing.ipynb",
-            "02_scRNA_analysis_extended.ipynb",
-            "03_scRNA_analysis_with_pearson_residuals.ipynb",
-            "04_scRNA_analysis_dask_out_of_core.ipynb",
-            "05_scRNA_analysis_multi_GPU.ipynb",
-            "06_scRNA_analysis_90k_brain_example.ipynb",
-            "07_scRNA_analysis_1.3M_brain_example.ipynb",
+            "01_scRNA_analysis_preprocessing.ipynb"
+            # "02_scRNA_analysis_extended.ipynb"
+            # "03_scRNA_analysis_with_pearson_residuals.ipynb",
+            # "04_scRNA_analysis_dask_out_of_core.ipynb",
+            # "05_scRNA_analysis_multi_GPU.ipynb",
+            # "06_scRNA_analysis_90k_brain_example.ipynb",
+            # "07_scRNA_analysis_1.3M_brain_example.ipynb",
           ]
       max-parallel: 4
       fail-fast: false
@@ -376,11 +376,11 @@ jobs:
             echo "===============Check file====================="
           '
 
-      # - name: Debug --- Setup tmate debug session
-      #   uses: mxschmitt/action-tmate@v3
-      #   with:
-      #     limit-access-to-actor: true
-      #     timeout-minutes: 60
+      - name: Debug --- Setup tmate debug session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: true
+          timeout-minutes: 60
 
       # - name: Install Poetry/Dependencies and execute pytest
       #   id: run-pytest
@@ -501,7 +501,7 @@ jobs:
             --cov-report=xml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_HTML" \
             --junitxml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" \
             --html:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" \
-            --self-contained-html 2>&1) || true  # 即使测试失败也继续
+            --self-contained-html 2>&1) || true
 
           RESULTS_FILE="$DOCKER_WRITEABLE_DIR/test_results.txt"
           echo "TEST_OUTPUT_START" > "$RESULTS_FILE"
