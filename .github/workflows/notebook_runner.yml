@@ -61,7 +61,7 @@ jobs:
       DOCKER_CACHE_DIR: "docker-pull-cache"
       OUTPUT_NOTEBOOK: "result_${{ matrix.NOTEBOOK_FILENAME }}"
       OUTPUT_NOTEBOOK_HTML: "result_${{ matrix.NOTEBOOK_FILENAME }}.html"
-      OUTPUT_PYTEST_COVERAGE_HTML: "pytest_coverage_${{ matrix.NOTEBOOK_FILENAME }}.xml"
+      OUTPUT_PYTEST_COVERAGE_XML: "pytest_coverage_${{ matrix.NOTEBOOK_FILENAME }}.xml"
       OUTPUT_PYTEST_RESULT_XML: "pytest_result_${{ matrix.NOTEBOOK_FILENAME }}.xml"
       OUTPUT_PYTEST_REPORT_HTML: "pytest_report_${{ matrix.NOTEBOOK_FILENAME }}.html"
       ARTIFACT_DIR: "${{ github.workspace }}/test-results/${{ matrix.NOTEBOOK_FILENAME }}"
@@ -389,7 +389,7 @@ jobs:
       #       cd blueprint-github-test
 
       #       OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-      #       OUTPUT_PYTEST_COVERAGE_HTML="${{ env.OUTPUT_PYTEST_COVERAGE_HTML }}"
+      #       OUTPUT_PYTEST_COVERAGE_XML="${{ env.OUTPUT_PYTEST_COVERAGE_XML }}"
       #       OUTPUT_PYTEST_RESULT_XML="${{ env.OUTPUT_PYTEST_RESULT_XML }}"
       #       OUTPUT_PYTEST_REPORT_HTML="${{ env.OUTPUT_PYTEST_REPORT_HTML }}"
       #       DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
@@ -413,7 +413,7 @@ jobs:
 
       #       TEST_OUTPUT=$(poetry run pytest -m single_cell \
       #         --cov=./ \
-      #         --cov-report=xml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_HTML" \
+      #         --cov-report=xml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_XML" \
       #         --junitxml="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" \
       #         --html"="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" \
       #         --self-contained-html 2>&1)
@@ -466,7 +466,7 @@ jobs:
           cd blueprint-github-test
 
           OUTPUT_NOTEBOOK_HTML="$1"
-          OUTPUT_PYTEST_COVERAGE_HTML="$2"
+          OUTPUT_PYTEST_COVERAGE_XML="$2"
           OUTPUT_PYTEST_RESULT_XML="$3"
           OUTPUT_PYTEST_REPORT_HTML="$4"
           DOCKER_WRITEABLE_DIR="$5"
@@ -497,7 +497,7 @@ jobs:
 
           TEST_OUTPUT=$(poetry run pytest -m single_cell \
             --cov=./ \
-            --cov-report=xml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_HTML" \
+            --cov-report=xml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_XML" \
             --junitxml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" \
             --html:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" \
             --self-contained-html 2>&1) || true
@@ -533,7 +533,7 @@ jobs:
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -s -- \
             "${{ env.OUTPUT_NOTEBOOK_HTML }}" \
-            "${{ env.OUTPUT_PYTEST_COVERAGE_HTML }}" \
+            "${{ env.OUTPUT_PYTEST_COVERAGE_XML }}" \
             "${{ env.OUTPUT_PYTEST_RESULT_XML }}" \
             "${{ env.OUTPUT_PYTEST_REPORT_HTML }}" \
             "${{ env.DOCKER_WRITEABLE_DIR }}" \
@@ -580,7 +580,7 @@ jobs:
           ls -al
 
           OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
-          OUTPUT_PYTEST_COVERAGE_HTML="${{ env.OUTPUT_PYTEST_COVERAGE_HTML }}"
+          OUTPUT_PYTEST_COVERAGE_XML="${{ env.OUTPUT_PYTEST_COVERAGE_XML }}"
           OUTPUT_PYTEST_RESULT_XML="${{ env.OUTPUT_PYTEST_RESULT_XML }}"
           OUTPUT_PYTEST_REPORT_HTML="${{ env.OUTPUT_PYTEST_REPORT_HTML }}"
           DOCKER_WRITEABLE_DIR="${{ env.DOCKER_WRITEABLE_DIR }}"
@@ -588,7 +588,7 @@ jobs:
 
           mkdir -p "$ARTIFACT_DIR" || exit 1
           docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" "$ARTIFACT_DIR"
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_HTML" "$ARTIFACT_DIR"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_XML" "$ARTIFACT_DIR"
           docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" "$ARTIFACT_DIR"
           docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" "$ARTIFACT_DIR"
 
