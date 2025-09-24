@@ -496,7 +496,7 @@ jobs:
           echo "Python path: $(which python)"
           echo "Poetry env: $(poetry env info)"
 
-          TEST_OUTPUT=$(poetry run pytest -m single_cell \
+          TEST_OUTPUT=$(poetry run pytest -m single_cell --override-ini addopts="" \
             --cov=./ \
             --cov-report=xml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_XML" \
             --junitxml:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" \
