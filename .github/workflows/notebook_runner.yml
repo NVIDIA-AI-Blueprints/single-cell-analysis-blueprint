@@ -478,6 +478,8 @@ jobs:
 
           poetry config virtualenvs.create true
           poetry install --no-interaction --no-root
+          source "$(poetry env info --path)/bin/activate"
+
           pip install pytest-cov
 
           if [ -d "cloudia" ]; then
@@ -485,8 +487,6 @@ jobs:
             pip install -e .
             popd
           fi
-
-          source "$(poetry env info --path)/bin/activate"
 
           rm -rf input/*
           mkdir -p input
