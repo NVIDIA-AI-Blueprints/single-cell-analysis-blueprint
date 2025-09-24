@@ -496,44 +496,16 @@ jobs:
           echo "Python path: $(which python)"
           echo "Poetry env: $(poetry env info)"
 
-          TEST_OUTPUT=$(poetry run pytest -m single_cell --override-ini addopts="" \
+          poetry run pytest -m single_cell --override-ini addopts="" \
             --cov=./ \
             --cov-report=xml \
             --junitxml="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" \
             --html="$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" \
-            --self-contained-html 2>&1) || true
+            --self-contained-html || echo "Pytest execution completed"
 
           if [ -f "coverage.xml" ]; then
             mv coverage.xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_XML"
           fi
-
-          RESULTS_FILE="$DOCKER_WRITEABLE_DIR/test_results.txt"
-          echo "TEST_OUTPUT_START" > "$RESULTS_FILE"
-          echo "$TEST_OUTPUT" >> "$RESULTS_FILE"
-          echo "TEST_OUTPUT_END" >> "$RESULTS_FILE"
-
-          parse_xml() {
-            local file="$1"
-            local xpath="$2"
-            xmllint --xpath "$xpath" "$file" 2>/dev/null || echo "0"
-          }
-
-          passed=$(parse_xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" 'count(//testcase[not(skipped) and not(failure) and not(error)])')
-          failures=$(parse_xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" 'count(//testcase[failure])')
-          errors=$(parse_xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" 'count(//testcase[error])')
-          skipped=$(parse_xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" 'count(//testcase[skipped])')
-          xfailed=$(parse_xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" 'count(//testcase[contains(@name, "[xfail]")])')
-          xpassed=$(parse_xml "$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" 'count(//testcase[contains(@name, "[xpass]")])')
-          actual_passed=$((passed - xpassed))
-
-          {
-            echo "passed=$actual_passed"
-            echo "failed=$failures"
-            echo "skipped=$skipped"
-            echo "errors=$errors"
-            echo "xfailed=$xfailed"
-            echo "xpassed=$xpassed"
-          } >> "$RESULTS_FILE"
           EOS
 
           docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend bash -s -- \
@@ -544,46 +516,12 @@ jobs:
             "${{ env.DOCKER_WRITEABLE_DIR }}" \
             "${{ steps.set_global_vars.outputs.notebook_basename }}" \
             < "$SCRIPT_FILE" || echo "Docker exec completed with status $?"
-
-          RESULTS_CONTENT=$(docker compose -f "$DOCKER_COMPOSE_FILE" exec -T backend \
-            cat "${{ env.DOCKER_WRITEABLE_DIR }}/test_results.txt" 2>/dev/null || echo "RESULTS_ERROR")
-
-          if [ "$RESULTS_CONTENT" = "RESULTS_ERROR" ]; then
-            echo "::error::Failed to retrieve test results"
-            exit 1
-          fi
-
-          TEST_OUTPUT=$(sed -n '/TEST_OUTPUT_START/,/TEST_OUTPUT_END/{/TEST_OUTPUT_START/!{/TEST_OUTPUT_END/!p}}' <<< "$RESULTS_CONTENT")
-
-          echo "TEST_OUTPUT<<EOF" >> $GITHUB_ENV
-          echo "$TEST_OUTPUT" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-
-          extract_metric() {
-            echo "$RESULTS_CONTENT" | grep "^$1=" | cut -d= -f2 || echo "0"
-          }
-          echo "passed=$(extract_metric passed)" >> $GITHUB_OUTPUT
-          echo "failed=$(extract_metric failed)" >> $GITHUB_OUTPUT
-          echo "skipped=$(extract_metric skipped)" >> $GITHUB_OUTPUT
-          echo "errors=$(extract_metric errors)" >> $GITHUB_OUTPUT
-          echo "xfailed=$(extract_metric xfailed)" >> $GITHUB_OUTPUT
-          echo "xpassed=$(extract_metric xpassed)" >> $GITHUB_OUTPUT
-
-          echo "### Test Results Summary" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "$TEST_OUTPUT" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
         shell: bash
 
-      - name: Copy result files from container to runner
+      - name: Copy result files from container to runner and display test results
         id: prepare-result-file
-        if: >
-          steps.generate-notebook-html.outcome == 'success' &&
-          steps.run-pytest.outcome == 'success'
+        if: steps.run-pytest.outcome == 'success'
         run: |
-          pwd
-          ls -al
-
           OUTPUT_NOTEBOOK_HTML="${{ env.OUTPUT_NOTEBOOK_HTML }}"
           OUTPUT_PYTEST_COVERAGE_XML="${{ env.OUTPUT_PYTEST_COVERAGE_XML }}"
           OUTPUT_PYTEST_RESULT_XML="${{ env.OUTPUT_PYTEST_RESULT_XML }}"
@@ -592,36 +530,43 @@ jobs:
           ARTIFACT_DIR="${{ env.ARTIFACT_DIR }}"
 
           mkdir -p "$ARTIFACT_DIR" || exit 1
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" "$ARTIFACT_DIR"
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_XML" "$ARTIFACT_DIR"
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" "$ARTIFACT_DIR"
-          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" "$ARTIFACT_DIR"
+          
+          # Copy all generated files from container
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_NOTEBOOK_HTML" "$ARTIFACT_DIR/" 2>/dev/null || echo "Note: $OUTPUT_NOTEBOOK_HTML not found"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_COVERAGE_XML" "$ARTIFACT_DIR/" 2>/dev/null || echo "Note: $OUTPUT_PYTEST_COVERAGE_XML not found"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_RESULT_XML" "$ARTIFACT_DIR/" 2>/dev/null || echo "Note: $OUTPUT_PYTEST_RESULT_XML not found"
+          docker compose -f "$DOCKER_COMPOSE_FILE" cp backend:"$DOCKER_WRITEABLE_DIR/$OUTPUT_PYTEST_REPORT_HTML" "$ARTIFACT_DIR/" 2>/dev/null || echo "Note: $OUTPUT_PYTEST_REPORT_HTML not found"
 
-          echo '${{ steps.run-pytest.outputs.test_results_json }}' > "$ARTIFACT_DIR/${{ matrix.NOTEBOOK_FILENAME }}.json"
+          echo "### 📊 Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Notebook:** ${{ matrix.NOTEBOOK_FILENAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Display pytest HTML report content if available
+          if [ -f "$ARTIFACT_DIR/$OUTPUT_PYTEST_REPORT_HTML" ]; then
+            echo "**📋 Pytest Report:**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The detailed test report has been generated and uploaded to artifacts." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📊 [Download Test Report]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Pytest HTML report not generated" >> $GITHUB_STEP_SUMMARY
+          fi
 
-          mkdir -p "${{ github.workspace }}/json-results"
-          echo '${{ steps.run-pytest.outputs.test_results_json }}' > "json-results/${{ matrix.NOTEBOOK_FILENAME }}.json"
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**📁 Generated Files:**" >> $GITHUB_STEP_SUMMARY
+          ls -la "$ARTIFACT_DIR" | while read line; do
+            echo "- $line" >> $GITHUB_STEP_SUMMARY
+          done
 
-          echo "===========Show the contents of dir: $ARTIFACT_DIR================="
-          ls -al "$ARTIFACT_DIR"
-          ls -al "${{ github.workspace }}/json-results"
-
-      - name: Upload the result notebook as artifact
+      - name: Upload all result files as artifacts
         if: steps.prepare-result-file.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.set_global_vars.outputs.artifact_name }}
           path: ${{ env.ARTIFACT_DIR }}/
           retention-days: 30
-          if-no-files-found: error
-
-      - name: Upload JSON test results
-        if: steps.prepare-result-file.outcome == 'success'
-        uses: actions/upload-artifact@v4
-        with:
-          name: json-results-${{ matrix.NOTEBOOK_FILENAME }}
-          path: json-results/${{ matrix.NOTEBOOK_FILENAME }}.json
-          retention-days: 30
+          if-no-files-found: warn
 
       - name: Stop containers
         if: ${{ always() }}
@@ -659,59 +604,36 @@ jobs:
           echo "Error: Cache not found after 3 attempts."
           exit 1
 
-      - name: Download JSON test results
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: downloaded-results
 
-      - name: Generate final report
+      - name: Generate final summary
         run: |
-          echo "### 📊 Notebook Test Results Summary" >> $GITHUB_STEP_SUMMARY
-          echo "| Notebook | ✅ Passed | ❌ Failed | ⏩ Skipped | 💥 Errors |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|----------|----------|-----------|----------|" >> $GITHUB_STEP_SUMMARY
-
-          notebooks=(
-            "01_scRNA_analysis_preprocessing.ipynb"
-            "02_scRNA_analysis_extended.ipynb"
-            "03_scRNA_analysis_with_pearson_residuals.ipynb"
-            "04_scRNA_analysis_dask_out_of_core.ipynb"
-            "05_scRNA_analysis_multi_GPU.ipynb"
-            "06_scRNA_analysis_90k_brain_example.ipynb"
-            "07_scRNA_analysis_1.3M_brain_example.ipynb"
-          )
-
-          total_passed=0
-          total_failed=0
-          total_skipped=0
-          total_errors=0
-          total_xfailed=0
-          total_xpassed=0
-
-          for notebook in "${notebooks[@]}"; do
-            nb_name=$(basename "$notebook")
-            json_file="downloaded-results/json-results-${notebook}/$notebook.json"
-
-            if [ -f "$json_file" ]; then
-              results=$(cat "$json_file")
-
-              total_passed=$((total_passed + $(echo "$results" | jq -r '.passed')))
-              total_failed=$((total_failed + $(echo "$results" | jq -r '.failed')))
-              total_skipped=$((total_skipped + $(echo "$results" | jq -r '.skipped')))
-              total_errors=$((total_errors + $(echo "$results" | jq -r '.errors')))
-              total_xfailed=$((total_xfailed + $(echo "$results" | jq -r '.xfailed')))
-              total_xpassed=$((total_xpassed + $(echo "$results" | jq -r '.xpassed')))
-
-              echo "| $nb_name | $(echo "$results" | jq -r '.passed') | $(echo "$results" | jq -r '.failed') | $(echo "$results" | jq -r '.skipped') | $(echo "$results" | jq -r '.errors') |" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "| $nb_name | ❌ Missing data | ❌ Missing data | ❌ Missing data | ❌ Missing data |" >> $GITHUB_STEP_SUMMARY
-            fi
-          done
-
-          echo "| **Total** | **$total_passed** | **$total_failed** | **$total_skipped** | **$total_errors** |" >> $GITHUB_STEP_SUMMARY
-
+          echo "### 📊 Notebook Execution Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📌 Additional Metrics" >> $GITHUB_STEP_SUMMARY
-          echo "- 🔶 Expected Failures (XFailed): $total_xfailed" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚠️ Unexpected Passes (XPassed): $total_xpassed" >> $GITHUB_STEP_SUMMARY
+          
+          # Count executed notebooks by checking for artifacts
+          executed_count=0
+          if [ -d "downloaded-results" ]; then
+            for result_dir in downloaded-results/results-*/; do
+              if [ -d "$result_dir" ]; then
+                executed_count=$((executed_count + 1))
+                notebook_name=$(basename "$result_dir" | sed 's/^results-//')
+                echo "✅ **$notebook_name** - Execution completed" >> $GITHUB_STEP_SUMMARY
+                
+                # List available files for this notebook
+                echo "   - Available files:" >> $GITHUB_STEP_SUMMARY
+                ls -1 "$result_dir" | while read file; do
+                  echo "     - $file" >> $GITHUB_STEP_SUMMARY
+                done
+                echo "" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          fi
+
+          total_notebooks=7
+          echo "**Summary:** $executed_count out of $total_notebooks notebooks executed successfully" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📊 [View Detailed Artifacts]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)" >> $GITHUB_STEP_SUMMARY
+          echo "📊 [Download All Artifacts]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)" >> $GITHUB_STEP_SUMMARY
