@@ -4,7 +4,7 @@ run-name: Single-cell notebooks runner --- triggered by ${{ github.actor }}
 on:
   pull_request: {}
   push:
-    branches: [main, master, staging, release/*]
+    branches: [main, master, staging, release/*, github-action-workflow-plain]
   workflow_dispatch:
     inputs:
       environment:
