@@ -36,12 +36,12 @@ jobs:
       matrix:
         NOTEBOOK_FILENAME: [
             "01_scRNA_analysis_preprocessing.ipynb",
-            # "02_scRNA_analysis_extended.ipynb"
-            # "03_scRNA_analysis_with_pearson_residuals.ipynb",
-            # "04_scRNA_analysis_dask_out_of_core.ipynb",
-            # "05_scRNA_analysis_multi_GPU.ipynb",
-            # "06_scRNA_analysis_90k_brain_example.ipynb",
-            # "07_scRNA_analysis_1.3M_brain_example.ipynb",
+            "02_scRNA_analysis_extended.ipynb",
+            "03_scRNA_analysis_with_pearson_residuals.ipynb",
+            "04_scRNA_analysis_dask_out_of_core.ipynb",
+            "05_scRNA_analysis_multi_GPU.ipynb",
+            "06_scRNA_analysis_90k_brain_example.ipynb",
+            "07_scRNA_analysis_1.3M_brain_example.ipynb"
           ]
       max-parallel: 4
       fail-fast: false
@@ -633,7 +633,10 @@ jobs:
             done
           fi
 
-          total_notebooks=7
-          echo "**Summary:** $executed_count out of $total_notebooks notebooks executed successfully" >> $GITHUB_STEP_SUMMARY
+          if [ $executed_count -eq 1 ]; then
+            echo "**Summary:** $executed_count notebook executed successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Summary:** $executed_count notebooks executed successfully" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "📊 [Download All Artifacts]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)" >> $GITHUB_STEP_SUMMARY
