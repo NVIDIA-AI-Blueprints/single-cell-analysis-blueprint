@@ -478,6 +478,7 @@ jobs:
 
           poetry config virtualenvs.create true
           poetry install --no-interaction --no-root
+          pip install pytest-cov
 
           if [ -d "cloudia" ]; then
             pushd cloudia
