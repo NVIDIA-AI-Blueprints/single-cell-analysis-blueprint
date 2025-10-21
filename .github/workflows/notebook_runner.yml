@@ -91,7 +91,7 @@ jobs:
       - name: Verify Token Access
         run: |
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -H "Authorization: Bearer ${{ secrets.JOHNNY_DEV_GH_TOKEN }}" \
+            -H "Authorization: Bearer ${{ secrets.BLUEPRINT_GITHUB_TEST_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/repos/NVIDIA-AI-Blueprints/blueprint-github-test")
 
@@ -109,7 +109,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: "NVIDIA-AI-Blueprints/blueprint-github-test"
-          token: ${{ secrets.JOHNNY_DEV_GH_TOKEN }}
+          token: ${{ secrets.BLUEPRINT_GITHUB_TEST_TOKEN }}
           path: blueprint-github-test
           fetch-depth: 1
 
