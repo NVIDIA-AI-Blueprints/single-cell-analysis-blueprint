@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  backend:
+    image: nvcr.io/nvidia/rapidsai/notebooks:26.02-cuda12-py3.12
+    pull_policy: always
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    shm_size: 1g
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+        EXTRA_PIP_PACKAGES: "anndata array-api-compat contourpy cycler fonttools h5py imageio joblib kiwisolver lazy-loader legacy-api-wrap llvmlite matplotlib natsort networkx numba numpy pandas patsy pillow pynndescent rapids-singlecell scanpy scikit-learn scikit-image scikit-misc scipy seaborn session-info2 statsmodels threadpoolctl tifffile tqdm tzdata umap-learn wget deprecated numcodecs wrapt zarr"		
+    ports:
+      - "0.0.0.0:8888:8888"      # JupyterLab
+      - "0.0.0.0:8787:8787"      # Dask dashboard
+      - "0.0.0.0:8786:8786"      # Dask scheduler
+    volumes:
+      - /home/ubuntu/single-cell-analysis-blueprint:/notebooks/
+    user: root
+    working_dir: /notebooks
+    entrypoint: ["/home/rapids/entrypoint.sh"]
+    command: python -m jupyter lab --allow-root --ip=0.0.0.0 --no-browser --NotebookApp.token='' --NotebookApp.password='' --notebook-dir=/notebooks
+    restart: unless-stopped
+
+ 
+ 
