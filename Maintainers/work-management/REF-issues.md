@@ -35,7 +35,7 @@ There may also be:
 | Epic | `[EPIC]` | Large-reaching issues that contain [tasklists](https://docs.github.com/en/issues/tracking-your-work-with-issues/about-tasklists) of component issues
 
 
-If you have an issue which truly is not one of the above, you can select `Open a regular issue`. During triage, the team may ask the filer to resubmit the issue as a template if found to be incorrecly un-templated.
+If you have an issue which truly is not one of the above, you can select `Open a regular issue`. During triage, the team may ask the filer to resubmit the issue as a template if found to be incorrectly un-templated.
 
 Consider adding https://github.com/jarmak-nv/rapids-repo-template/labels/good%20first%20issue or https://github.com/jarmak-nv/rapids-repo-template/labels/help%20wanted labels to the issue if applicable.
 

@@ -51,8 +51,6 @@ This is an overview of methods that can be used to investigate transcriptional r
 
 By the completion of this notebook, a user will be able to remove unwanted sources of variation using Pearson Residuals to normalize. This is a different approach to analysis from Notebook 01. After filtering, we introduce a normalization step toa address the potential issues in how we previously removed unwanted sources of variation.
 
-
-
 ### **Notebook 04_scRNA_analysis_dask_out_of_core.ipynb - Scale analysis to 11M cells easily and quickly leveraging Dask**
 
 By the completion of this notebook, a user will be able to do the following:
@@ -63,17 +61,23 @@ By the completion of this notebook, a user will be able to do the following:
 - Scale gene expression
 - Compute PCA using GPU acceleration
 
-### **Notebook 05_scRNA_analysis_multi_GPU.ipynb - Multi-GPU showcase using persist**
+### **Notebook 05_spatial_demo.ipynb - Spatial Analysis with rapids-singlecell and Squidpy**
 
-By the completion of this notebook, a user will be able to perform the same steps as Notebook 05, but with the following:
-- Process massive single-cell datasets without exceeding memory limits
-- Fully utilize all available GPUs, scaling performance across multiple devices
-- Enable chunk-based execution, efficiently managing memory by loading only necessary data
+By the completion of this notebook, a user will be able to do the following:
+- Compute spatial autocorrelation using Moran's I (global spatial structure) and Geary's C (local expression differences) to identify niche-specific expression and spatial gradients
+- Perform co-occurrence analysis to measure the probability of cell-type pairs co-localizing across varying spatial distances, revealing tissue organization and cell-cell interactions
+- Leverage GPU-accelerated spatial implementations in rapids-singlecell for significant speedups over CPU-based methods
 
-### **Notebook 06_scRNA_analysis_90k_brain_example.ipynb - End to end example on Brain Cells**
+### **Notebook 06_scRNA_analysis_1.0M_brain_example.ipynb - End to end example on 1M Brain Cells**
 
-By the completion of this noteobok, a user will be able to perform similar steps to Notebook 01 (end to end demo) but on brain cells.
+In this notebook, a user will perform similar steps as the Notebook 01 (end to end demo), but on 1M brain cells.
 
-### **Notebook 07_scRNA_analysis_1.3M_brain_example.ipynb - End to end example on 1M Brain Cells**
+### **Notebook 07_perturbation_analysis_invivo_brain_example.ipynb - Perturbation Analysis: In Vivo Brain CRISPR Atlas Example**
 
-By the completion of this noteobok, a user will be able to perform similar steps to demo_gpu-seuratv3 but on 1M brain cells.
+This notebook demonstrates GPU-accelerated perturbation analysis on a whole-brain single-nucleus CRISPR atlas (~3.5M cells, targeting ~2,000 genes across hundreds of neuronal types) using RAPIDS-singlecell. By the completion of this notebook, a user will be able to do the following:
+
+- Load a preprocessed Zarr dataset from HuggingFace into a GPU-ready AnnData object using Dask for out-of-core processing
+- Configure a local CUDA cluster and tune GPU memory management with RAPIDS Memory Manager (RMM)
+- Build GPU-accelerated PCA embeddings on the full dataset and visualize cell populations with UMAP
+- Compute pairwise E-distances between perturbation groups and non-targeting controls across all cell types to build a global perturbation-response map
+- Overlay external essential gene lists (Blomen et al., Science 2015) in select cell types and use Mann-Whitney U tests to show that essential gene perturbations produce significantly higher E-distances
