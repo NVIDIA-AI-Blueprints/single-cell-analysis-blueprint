@@ -14,7 +14,7 @@
 #   (rapidsai/notebooks is not anonymously pullable; login as user '$oauthtoken', password = key)
 #   Alternative: repository secret NVIDIA_API_KEY is accepted if NGC_API_KEY is unset.
 # Optional: TEST_DOCKER_PULL_KEY — nvcr.io token for blueprint-github-test-image pull + pytest (Run Test Code exits early if unset).
-# Optional: HUGGING_FACE_HUB_TOKEN — HF downloads for notebook 07 (passed into papermill container as HF_TOKEN).
+# Optional: HUGGING_FACE_HUB_TOKEN — passed into papermill container as HF_TOKEN if notebooks need it.
 # Optional: SMTP_USERNAME, SMTP_PASSWORD — Gmail SMTP for Send mail (dawidd6/action-send-mail).
 # =============================================================================
 
@@ -157,8 +157,6 @@ jobs:
           nb = json.loads(text)
           changed_data = 0
           changed_out = 0
-          changed_dl = 0
-          changed_tar = 0
 
           for cell in nb.get("cells", []):
               if cell.get("cell_type") != "code":
@@ -166,21 +164,8 @@ jobs:
               src = cell.get("source", [])
               if not isinstance(src, list):
                   continue
-              joined_cell = "".join(src)
-              zarr_tar_cell = "preprocessed_gex.zarr.tar.gz" in joined_cell
-              needs_subproc = (
-                  'os.system(f"wget -q -O {output} {url}")' in joined_cell
-                  and "import subprocess" not in joined_cell
-                  and 'data_dir = os.getcwd()+"/h5"' not in joined_cell
-              )
               new_src = []
-              if needs_subproc:
-                  new_src.append("import subprocess\n")
               for line in src:
-                  if line.startswith('data_dir = os.getcwd()+"/h5"'):
-                      new_src.append("import subprocess\n")
-                      new_src.append(line)
-                      continue
                   if line.startswith("DATA_PATH_ZARR = "):
                       new_src.append(f'DATA_PATH_ZARR = "{data_path}" # CI patched path\n')
                       changed_data += 1
@@ -188,60 +173,6 @@ jobs:
                       # Include singlet_gex.zarr lines: notebook reused OUT_DIR for CSV paths; must be a real output dir.
                       new_src.append(f'OUT_DIR = "{out_dir}" # CI patched output dir\n')
                       changed_out += 1
-                  elif 'os.system(f"wget -q -O {output} {url}")' in line:
-                      b = line[: len(line) - len(line.lstrip())]
-                      b1 = b + "    "
-                      b2 = b + "        "
-                      new_src.append(
-                          f'{b}_tok = (os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN") or "").strip()\n'
-                      )
-                      new_src.append(f"{b}_curl = [\n")
-                      new_src.append(f'{b1}"curl", "-fSL",\n')
-                      new_src.append(f'{b1}"--connect-timeout", "60",\n')
-                      new_src.append(f'{b1}"--max-time", "3600",\n')
-                      new_src.append(f'{b1}"--retry", "5",\n')
-                      new_src.append(f'{b1}"--retry-delay", "15",\n')
-                      new_src.append(f'{b1}"--retry-all-errors",\n')
-                      new_src.append(f'{b1}"-H", "User-Agent: single-cell-blueprint-ci/1.0",\n')
-                      new_src.append(f'{b1}"-o", output,\n')
-                      new_src.append(f"{b}]\n")
-                      new_src.append(f"{b}if _tok:\n")
-                      new_src.append(f'{b1}_curl.extend(["-H", f"Authorization: Bearer {{_tok}}"])\n')
-                      new_src.append(f"{b}_curl.append(url)\n")
-                      new_src.append(f"{b}_w = subprocess.run(_curl, capture_output=True, text=True)\n")
-                      new_src.append(f"{b}if _w.returncode != 0:\n")
-                      new_src.append(f"{b1}raise RuntimeError(\n")
-                      new_src.append(
-                          f'{b2}f"CI_NB07 curl failed rc={{_w.returncode}}: {{_w.stderr or _w.stdout or ""}}"\n'
-                      )
-                      new_src.append(f"{b1})\n")
-                      if zarr_tar_cell:
-                          new_src.append(f'{b}_gt = subprocess.run(["gzip", "-t", output], capture_output=True, text=True)\n')
-                          new_src.append(f"{b}if _gt.returncode != 0:\n")
-                          new_src.append(f"{b1}raise RuntimeError(\n")
-                          new_src.append(
-                              f'{b2}f"CI_NB07 gzip -t failed after download: {{_gt.stderr or _gt.stdout or ""}}"\n'
-                          )
-                          new_src.append(f"{b1})\n")
-                      changed_dl += 1
-                  elif 'os.system(f"tar -xzf {output} --warning=none")' in line:
-                      new_src.append("_gt = subprocess.run([\"gzip\", \"-t\", output], capture_output=True, text=True)\n")
-                      new_src.append("if _gt.returncode != 0:\n")
-                      new_src.append("    raise RuntimeError(\n")
-                      new_src.append("        f\"CI_NB07 gzip -t failed before extract: {_gt.stderr or _gt.stdout or ''}\"\n")
-                      new_src.append("    )\n")
-                      new_src.append("os.makedirs(data_dir + '/pert', exist_ok=True)\n")
-                      new_src.append("_tr = subprocess.run([\n")
-                      new_src.append("    \"tar\",\n")
-                      new_src.append("    \"-xzf\",\n")
-                      new_src.append("    output,\n")
-                      new_src.append("    \"-C\",\n")
-                      new_src.append("    data_dir + \"/pert\",\n")
-                      new_src.append("    \"--warning=none\",\n")
-                      new_src.append("], capture_output=True, text=True)\n")
-                      new_src.append("if _tr.returncode != 0:\n")
-                      new_src.append("    raise RuntimeError(f\"CI_NB07 tar failed rc={_tr.returncode}: {_tr.stderr or _tr.stdout or ''}\")\n")
-                      changed_tar += 1
                   elif line.strip() == 'f = zarr.open(OUT_DIR, mode="r")':
                       new_src.append('print(f"CI_NB07_DEBUG cwd={os.getcwd()}")\n')
                       new_src.append('print(f"CI_NB07_DEBUG DATA_PATH_ZARR={DATA_PATH_ZARR}")\n')
@@ -270,7 +201,7 @@ jobs:
           nb_path.write_text(json.dumps(nb, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
           print(
               f"Notebook 07 fixed-path patch: DATA_PATH_ZARR edits={changed_data}, "
-              f"OUT_DIR edits={changed_out}, dl edits={changed_dl}, tar edits={changed_tar}, nb={nb_path}"
+              f"OUT_DIR edits={changed_out}, nb={nb_path}"
           )
           PY
 
@@ -650,7 +581,9 @@ jobs:
         if: always()
         with:
           name: single-cell-papermill-output
-          path: ${{ env.DEST }}/notebook_output
+          path: |
+            ${{ env.DEST }}/notebook_output
+            ${{ env.DEST }}/single_cell_blueprint_test.html
           if-no-files-found: warn
           retention-days: 14
 
