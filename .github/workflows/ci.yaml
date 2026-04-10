@@ -8,7 +8,7 @@
 #   3. docker exec: uv install, requirements.txt, mamba cupy/numpy (was setup_launchable.sh)
 #   4. docker exec: for each notebook in PAPERMILL_NOTEBOOKS (space-separated), strip kernel-shutdown
 #     cells into /tmp (inline Python heredoc on runner → docker cp to /tmp), then papermill. Repo .ipynb unchanged.
-#   Temporary: papermill notebook 07 only. (Restore 01–07 when done.) Optional: blueprint-github-test-image validates HTML.
+#   All seven numbered notebooks run in order (01–07). Optional: blueprint-github-test-image validates HTML.
 #
 # Required secret: NGC_API_KEY — NVIDIA NGC API key for docker login to nvcr.io
 #   (rapidsai/notebooks is not anonymously pullable; login as user '$oauthtoken', password = key)
@@ -34,8 +34,8 @@ concurrency:
 env:
   CONTAINER_NAME: sc-blueprint-backend
   RAPIDS_IMAGE: nvcr.io/nvidia/rapidsai/notebooks:26.02-cuda12-py3.12
-  # TEMPORARY: notebook 07 only — restore full list for 01–07.
-  PAPERMILL_NOTEBOOKS: notebooks/07_perturbation_analysis_invivo_brain_example.ipynb
+  # Space-separated paths relative to repo root (under /notebooks in the container). Order matters.
+  PAPERMILL_NOTEBOOKS: notebooks/01_scRNA_analysis_preprocessing.ipynb notebooks/02_scRNA_analysis_extended.ipynb notebooks/03_scRNA_analysis_with_pearson_residuals.ipynb notebooks/04_scRNA_analysis_dask_out_of_core.ipynb notebooks/05_spatial_demo.ipynb notebooks/06_scRNA_analysis_1.0M_brain_example.ipynb notebooks/07_perturbation_analysis_invivo_brain_example.ipynb
   BLUEPRINT_TEST_IMAGE: nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest
   # CI-only replacements for notebook 07: paths + zarr.open discovers store under cwd/h5 (walk + optional h5/zarr).
   NB07_DATA_PATH_ZARR: /notebooks/notebooks/h5/pert/singlet_gex.zarr
