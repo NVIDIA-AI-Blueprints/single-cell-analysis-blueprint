@@ -8,7 +8,7 @@
 #   3. docker exec: uv install, requirements.txt, mamba cupy/numpy (was setup_launchable.sh)
 #   4. docker exec: for each notebook in PAPERMILL_NOTEBOOKS (space-separated), strip kernel-shutdown
 #     cells into /tmp (inline Python heredoc on runner → docker cp to /tmp), then papermill. Repo .ipynb unchanged.
-#   All seven numbered notebooks run in order (01–07). Optional: blueprint-github-test-image validates HTML.
+#   Temporary: papermill notebook 07 only. (Restore 01–07 when done.) Optional: blueprint-github-test-image validates HTML.
 #
 # Required secret: NGC_API_KEY — NVIDIA NGC API key for docker login to nvcr.io
 #   (rapidsai/notebooks is not anonymously pullable; login as user '$oauthtoken', password = key)
@@ -34,10 +34,10 @@ concurrency:
 env:
   CONTAINER_NAME: sc-blueprint-backend
   RAPIDS_IMAGE: nvcr.io/nvidia/rapidsai/notebooks:26.02-cuda12-py3.12
-  # Space-separated paths relative to repo root (under /notebooks in the container). Order matters.
-  PAPERMILL_NOTEBOOKS: notebooks/01_scRNA_analysis_preprocessing.ipynb notebooks/02_scRNA_analysis_extended.ipynb notebooks/03_scRNA_analysis_with_pearson_residuals.ipynb notebooks/04_scRNA_analysis_dask_out_of_core.ipynb notebooks/05_spatial_demo.ipynb notebooks/06_scRNA_analysis_1.0M_brain_example.ipynb notebooks/07_perturbation_analysis_invivo_brain_example.ipynb
+  # TEMPORARY: notebook 07 only — restore full list for 01–07.
+  PAPERMILL_NOTEBOOKS: notebooks/07_perturbation_analysis_invivo_brain_example.ipynb
   BLUEPRINT_TEST_IMAGE: nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest
-  # CI-only replacements for fixed host paths in notebook 07 config cell (HF extract → h5/pert/singlet_gex.zarr).
+  # CI-only replacements for notebook 07: paths + zarr.open discovers store under cwd/h5 (walk + optional h5/zarr).
   NB07_DATA_PATH_ZARR: /notebooks/notebooks/h5/pert/singlet_gex.zarr
   NB07_OUT_DIR: /notebooks/notebooks/h5/edist_outputs
   # Host copy of repo for docker mount/cp. Uses github.* only — runner context is invalid in workflow env on some GHE/validators.
@@ -46,7 +46,7 @@ env:
 jobs:
   rapids-papermill-pipeline:
     name: Start RAPIDS + Papermill pipeline
-    runs-on: arc-runners-org-nvidia-ai-bp-4-gpu
+    runs-on: arc-runner-set-oke-org-poc-2-gpu
     timeout-minutes: 120
 
     steps:
@@ -176,22 +176,45 @@ jobs:
                   elif line.strip() == 'f = zarr.open(OUT_DIR, mode="r")':
                       new_src.append('print(f"CI_NB07_DEBUG cwd={os.getcwd()}")\n')
                       new_src.append('print(f"CI_NB07_DEBUG DATA_PATH_ZARR={DATA_PATH_ZARR}")\n')
-                      new_src.append('_pert = os.path.join(os.getcwd(), "h5", "pert")\n')
-                      new_src.append('_cands = [\n')
-                      new_src.append('    DATA_PATH_ZARR,\n')
-                      new_src.append('    os.path.join(_pert, "singlet_gex.zarr"),\n')
-                      new_src.append('    os.path.join(_pert, "preprocessed_gex.zarr"),\n')
-                      new_src.append(']\n')
-                      new_src.append('_zarr_store = next((c for c in _cands if c and os.path.isdir(c)), None)\n')
+                      new_src.append('def _ci_nb07_find_zarr_store():\n')
+                      new_src.append('    if DATA_PATH_ZARR and os.path.isdir(DATA_PATH_ZARR):\n')
+                      new_src.append('        return DATA_PATH_ZARR\n')
+                      new_src.append('    _hz = os.path.join(os.getcwd(), "h5", "zarr")\n')
+                      new_src.append('    if os.path.isdir(_hz):\n')
+                      new_src.append('        for _m in ("zarr.json", ".zgroup", ".zmetadata"):\n')
+                      new_src.append('            if os.path.isfile(os.path.join(_hz, _m)):\n')
+                      new_src.append('                return _hz\n')
+                      new_src.append('    roots = []\n')
+                      new_src.append('    for b in (\n')
+                      new_src.append('        os.path.join(os.getcwd(), "h5", "pert"),\n')
+                      new_src.append('        os.path.join(os.getcwd(), "h5"),\n')
+                      new_src.append('        os.getcwd(),\n')
+                      new_src.append('    ):\n')
+                      new_src.append('        if os.path.isdir(b):\n')
+                      new_src.append('            roots.append(b)\n')
+                      new_src.append('    names = ("singlet_gex.zarr", "preprocessed_gex.zarr")\n')
+                      new_src.append('    for name in names:\n')
+                      new_src.append('        for root in roots:\n')
+                      new_src.append('            p = os.path.join(root, name)\n')
+                      new_src.append('            if os.path.isdir(p):\n')
+                      new_src.append('                return p\n')
+                      new_src.append('    for root in roots:\n')
+                      new_src.append('        for r, dirs, _ in os.walk(root):\n')
+                      new_src.append('            for name in names:\n')
+                      new_src.append('                if name in dirs:\n')
+                      new_src.append('                    return os.path.join(r, name)\n')
+                      new_src.append('    return None\n')
+                      new_src.append('_zarr_store = _ci_nb07_find_zarr_store()\n')
                       new_src.append('print(f"CI_NB07_DEBUG resolved_zarr_store={_zarr_store!r}")\n')
-                      new_src.append('print(f"CI_NB07_DEBUG pert_exists={os.path.isdir(_pert)}")\n')
-                      new_src.append('if os.path.isdir(_pert):\n')
-                      new_src.append('    print(f"CI_NB07_DEBUG pert_listing={os.listdir(_pert)[:30]}")\n')
+                      new_src.append('_h5 = os.path.join(os.getcwd(), "h5")\n')
+                      new_src.append('print(f"CI_NB07_DEBUG h5_exists={os.path.isdir(_h5)}")\n')
+                      new_src.append('if os.path.isdir(_h5):\n')
+                      new_src.append('    print(f"CI_NB07_DEBUG h5_listing={os.listdir(_h5)[:40]}")\n')
                       new_src.append('if _zarr_store is None:\n')
-                      new_src.append('    _base = os.path.join(os.getcwd(), "h5")\n')
-                      new_src.append('    _hint = os.listdir(_base)[:20] if os.path.isdir(_base) else "missing"\n')
+                      new_src.append('    _hint = os.listdir(_h5)[:30] if os.path.isdir(_h5) else "missing h5"\n')
                       new_src.append('    raise FileNotFoundError(\n')
-                      new_src.append('        f"CI_NB07_DEBUG no zarr dir under h5/pert (tried singlet + preprocessed); h5 listing={_hint!r}"\n')
+                      new_src.append('        "CI_NB07_DEBUG no zarr store (singlet/preprocessed *_gex.zarr or h5/zarr with zarr metadata) "\n')
+                      new_src.append('        f"under cwd/h5; tar may have extracted to notebook dir; h5 listing={_hint!r}"\n')
                       new_src.append('    )\n')
                       new_src.append('f = zarr.open(_zarr_store, mode="r")\n')
                   else:
