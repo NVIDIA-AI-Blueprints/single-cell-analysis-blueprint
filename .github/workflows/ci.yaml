@@ -46,7 +46,7 @@ env:
 jobs:
   rapids-papermill-pipeline:
     name: Start RAPIDS + Papermill pipeline
-    runs-on: arc-runner-set-oke-org-poc-2-gpu
+    runs-on: arc-runners-org-nvidia-ai-bp-4-gpu
     timeout-minutes: 120
 
     steps:
@@ -158,12 +158,74 @@ jobs:
           changed_data = 0
           changed_out = 0
 
+          def nb07_zarr_open_preamble():
+              return [
+                  'print(f"CI_NB07_DEBUG cwd={os.getcwd()}")\n',
+                  'print(f"CI_NB07_DEBUG DATA_PATH_ZARR={DATA_PATH_ZARR}")\n',
+                  'def _ci_nb07_find_zarr_store():\n',
+                  '    if DATA_PATH_ZARR and os.path.isdir(DATA_PATH_ZARR):\n',
+                  '        return DATA_PATH_ZARR\n',
+                  '    _hz = os.path.join(os.getcwd(), "h5", "zarr")\n',
+                  '    if os.path.isdir(_hz):\n',
+                  '        for _m in ("zarr.json", ".zgroup", ".zmetadata"):\n',
+                  '            if os.path.isfile(os.path.join(_hz, _m)):\n',
+                  '                return _hz\n',
+                  '    roots = []\n',
+                  '    for b in (\n',
+                  '        os.path.join(os.getcwd(), "h5", "pert"),\n',
+                  '        os.path.join(os.getcwd(), "h5"),\n',
+                  '        os.getcwd(),\n',
+                  '    ):\n',
+                  '        if os.path.isdir(b):\n',
+                  '            roots.append(b)\n',
+                  '    names = ("singlet_gex.zarr", "preprocessed_gex.zarr")\n',
+                  '    for name in names:\n',
+                  '        for root in roots:\n',
+                  '            p = os.path.join(root, name)\n',
+                  '            if os.path.isdir(p):\n',
+                  '                return p\n',
+                  '    for root in roots:\n',
+                  '        for r, dirs, _ in os.walk(root):\n',
+                  '            for name in names:\n',
+                  '                if name in dirs:\n',
+                  '                    return os.path.join(r, name)\n',
+                  '    return None\n',
+                  '_zarr_store = _ci_nb07_find_zarr_store()\n',
+                  'print(f"CI_NB07_DEBUG resolved_zarr_store={_zarr_store!r}")\n',
+                  '_h5 = os.path.join(os.getcwd(), "h5")\n',
+                  'print(f"CI_NB07_DEBUG h5_exists={os.path.isdir(_h5)}")\n',
+                  'if os.path.isdir(_h5):\n',
+                  '    print(f"CI_NB07_DEBUG h5_listing={os.listdir(_h5)[:40]}")\n',
+                  'if _zarr_store is None:\n',
+                  '    _hint = os.listdir(_h5)[:30] if os.path.isdir(_h5) else "missing h5"\n',
+                  '    raise FileNotFoundError(\n',
+                  '        "CI_NB07_DEBUG no zarr store (singlet/preprocessed *_gex.zarr or h5/zarr with zarr metadata) "\n',
+                  '        f"under cwd/h5; tar may have extracted to notebook dir; h5 listing={_hint!r}"\n',
+                  '    )\n',
+                  'f = zarr.open(_zarr_store, mode="r")\n',
+              ]
+
           for cell in nb.get("cells", []):
               if cell.get("cell_type") != "code":
                   continue
               src = cell.get("source", [])
               if not isinstance(src, list):
                   continue
+              joined = "".join(src)
+              # Replace stale CI injections (old h5/pert-only probe) so latest discovery always runs.
+              xzi = None
+              for i, line in enumerate(src):
+                  if line.strip().startswith('X_z = f["X"]'):
+                      xzi = i
+                      break
+              if xzi is not None:
+                  stale_zarr_ci = (
+                      "pert_exists" in joined
+                      or "no zarr dir under h5/pert" in joined
+                  )
+                  if stale_zarr_ci:
+                      cell["source"] = nb07_zarr_open_preamble() + src[xzi:]
+                      continue
               new_src = []
               for line in src:
                   if line.startswith("DATA_PATH_ZARR = "):
@@ -174,49 +236,7 @@ jobs:
                       new_src.append(f'OUT_DIR = "{out_dir}" # CI patched output dir\n')
                       changed_out += 1
                   elif line.strip() == 'f = zarr.open(OUT_DIR, mode="r")':
-                      new_src.append('print(f"CI_NB07_DEBUG cwd={os.getcwd()}")\n')
-                      new_src.append('print(f"CI_NB07_DEBUG DATA_PATH_ZARR={DATA_PATH_ZARR}")\n')
-                      new_src.append('def _ci_nb07_find_zarr_store():\n')
-                      new_src.append('    if DATA_PATH_ZARR and os.path.isdir(DATA_PATH_ZARR):\n')
-                      new_src.append('        return DATA_PATH_ZARR\n')
-                      new_src.append('    _hz = os.path.join(os.getcwd(), "h5", "zarr")\n')
-                      new_src.append('    if os.path.isdir(_hz):\n')
-                      new_src.append('        for _m in ("zarr.json", ".zgroup", ".zmetadata"):\n')
-                      new_src.append('            if os.path.isfile(os.path.join(_hz, _m)):\n')
-                      new_src.append('                return _hz\n')
-                      new_src.append('    roots = []\n')
-                      new_src.append('    for b in (\n')
-                      new_src.append('        os.path.join(os.getcwd(), "h5", "pert"),\n')
-                      new_src.append('        os.path.join(os.getcwd(), "h5"),\n')
-                      new_src.append('        os.getcwd(),\n')
-                      new_src.append('    ):\n')
-                      new_src.append('        if os.path.isdir(b):\n')
-                      new_src.append('            roots.append(b)\n')
-                      new_src.append('    names = ("singlet_gex.zarr", "preprocessed_gex.zarr")\n')
-                      new_src.append('    for name in names:\n')
-                      new_src.append('        for root in roots:\n')
-                      new_src.append('            p = os.path.join(root, name)\n')
-                      new_src.append('            if os.path.isdir(p):\n')
-                      new_src.append('                return p\n')
-                      new_src.append('    for root in roots:\n')
-                      new_src.append('        for r, dirs, _ in os.walk(root):\n')
-                      new_src.append('            for name in names:\n')
-                      new_src.append('                if name in dirs:\n')
-                      new_src.append('                    return os.path.join(r, name)\n')
-                      new_src.append('    return None\n')
-                      new_src.append('_zarr_store = _ci_nb07_find_zarr_store()\n')
-                      new_src.append('print(f"CI_NB07_DEBUG resolved_zarr_store={_zarr_store!r}")\n')
-                      new_src.append('_h5 = os.path.join(os.getcwd(), "h5")\n')
-                      new_src.append('print(f"CI_NB07_DEBUG h5_exists={os.path.isdir(_h5)}")\n')
-                      new_src.append('if os.path.isdir(_h5):\n')
-                      new_src.append('    print(f"CI_NB07_DEBUG h5_listing={os.listdir(_h5)[:40]}")\n')
-                      new_src.append('if _zarr_store is None:\n')
-                      new_src.append('    _hint = os.listdir(_h5)[:30] if os.path.isdir(_h5) else "missing h5"\n')
-                      new_src.append('    raise FileNotFoundError(\n')
-                      new_src.append('        "CI_NB07_DEBUG no zarr store (singlet/preprocessed *_gex.zarr or h5/zarr with zarr metadata) "\n')
-                      new_src.append('        f"under cwd/h5; tar may have extracted to notebook dir; h5 listing={_hint!r}"\n')
-                      new_src.append('    )\n')
-                      new_src.append('f = zarr.open(_zarr_store, mode="r")\n')
+                      new_src.extend(nb07_zarr_open_preamble())
                   else:
                       new_src.append(line)
               cell["source"] = new_src
