@@ -46,8 +46,8 @@ sh get-docker.sh
 ```
 docker run --gpus all --pull always --rm -it \
     --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 \
-    -p 8888:8888 -p 8787:8787 -p 8786:8786
-    -v ~/single-cell-analysis-blueprint:/home/rapids/notebooks/single-cell-analysis-blueprint
+    -p 8888:8888 -p 8787:8787 -p 8786:8786 \
+    -v ~/single-cell-analysis-blueprint:/home/rapids/notebooks/single-cell-analysis-blueprint \
     nvcr.io/nvidia/rapidsai/notebooks:26.02-cuda13-py3.12
 ```
 **Note:** The volume is currently assuming that you cloned the `single-cell-analysis-blueprint` repository into your `HOME` folder (`~/single-cell-analysis-blueprint`).  If you did not clone it there, please change the `~/single-cell-analysis-blueprint` portion of the above to the correct path before running the command.
