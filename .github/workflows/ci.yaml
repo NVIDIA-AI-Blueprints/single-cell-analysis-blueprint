@@ -48,7 +48,7 @@ jobs:
       - name: Get System Info
         run: |
           more /etc/os-release
-          nvidia-smi
+          nvidia-smi || echo "nvidia-smi not available"
           docker version
 
       - name: Run notebooks in the RAPIDS container
@@ -128,7 +128,7 @@ jobs:
 
       - name: Collect notebook HTMLs
         run: |
-          mkdir -p html
+          mkdir -p html artifacts
           find artifacts -name '*.html' -exec cp {} html/ \;
           ls -la html
 
