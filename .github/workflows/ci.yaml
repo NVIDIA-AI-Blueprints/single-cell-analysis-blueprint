@@ -49,7 +49,7 @@ jobs:
         run: |
           echo "===================== System Info (notebook 01) ====================="
           more /etc/os-release
-          nvidia-smi
+          nvidia-smi || echo "nvidia-smi not available"
           docker version
 
       - name: Login to nvcr.io
@@ -133,7 +133,7 @@ jobs:
         run: |
           echo "===================== System Info (notebook 02) ====================="
           more /etc/os-release
-          nvidia-smi
+          nvidia-smi || echo "nvidia-smi not available"
           docker version
 
       - name: Login to nvcr.io
@@ -215,7 +215,7 @@ jobs:
         run: |
           echo "===================== System Info (notebook 03) ====================="
           more /etc/os-release
-          nvidia-smi
+          nvidia-smi || echo "nvidia-smi not available"
           docker version
 
       - name: Login to nvcr.io
@@ -291,7 +291,7 @@ jobs:
         run: |
           echo "===================== System Info (notebook 04) ====================="
           more /etc/os-release
-          nvidia-smi
+          nvidia-smi || echo "nvidia-smi not available"
           docker version
 
       - name: Login to nvcr.io
@@ -367,7 +367,7 @@ jobs:
         run: |
           echo "===================== System Info (notebook 05) ====================="
           more /etc/os-release
-          nvidia-smi
+          nvidia-smi || echo "nvidia-smi not available"
           docker version
 
       - name: Login to nvcr.io
@@ -443,7 +443,7 @@ jobs:
         run: |
           echo "===================== System Info (notebook 06) ====================="
           more /etc/os-release
-          nvidia-smi
+          nvidia-smi || echo "nvidia-smi not available"
           docker version
 
       - name: Login to nvcr.io
@@ -519,7 +519,7 @@ jobs:
         run: |
           echo "===================== System Info (notebook 07) ====================="
           more /etc/os-release
-          nvidia-smi
+          nvidia-smi || echo "nvidia-smi not available"
           docker version
 
       - name: Login to nvcr.io
