@@ -1,649 +1,668 @@
-# =============================================================================
-# Single-Cell Analysis Blueprint — RAPIDS container + Papermill (ordered notebooks)
-# =============================================================================
-#
-# Flow:
-#   1. Check out, copy to DEST (workflow env; unique per run under /tmp) and mount as /notebooks
-#   2. Start RAPIDS image (PID 1: sleep infinity — stable for docker exec)
-#   3. docker exec: uv install, requirements.txt, mamba cupy/numpy (was setup_launchable.sh)
-#   4. docker exec: for each notebook in PAPERMILL_NOTEBOOKS (space-separated), strip kernel-shutdown
-#     cells into /tmp (inline Python heredoc on runner → docker cp to /tmp), then papermill. Repo .ipynb unchanged.
-#   All seven numbered notebooks run in order (01–07). Optional: blueprint-github-test-image validates HTML.
-#
-# Required secret: NGC_API_KEY — NVIDIA NGC API key for docker login to nvcr.io
-#   (rapidsai/notebooks is not anonymously pullable; login as user '$oauthtoken', password = key)
-#   Alternative: repository secret NVIDIA_API_KEY is accepted if NGC_API_KEY is unset.
-# Optional: TEST_DOCKER_PULL_KEY — nvcr.io token for blueprint-github-test-image pull + pytest (Run Test Code exits early if unset).
-# Optional: HUGGING_FACE_HUB_TOKEN — passed into papermill container as HF_TOKEN if notebooks need it.
-# Optional: SMTP_USERNAME, SMTP_PASSWORD — Gmail SMTP for Send mail (dawidd6/action-send-mail).
-# =============================================================================
-
-name: Single-Cell Blueprint Launchable + Papermill notebooks
+name: Notebook Execution and Test - Single-Cell Analysis
 
 on:
-  workflow_dispatch:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      test_image:
+        description: QA test image (blueprint-github-test)
+        type: string
+        default: nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: single-cell-notebook-gpu-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 env:
-  CONTAINER_NAME: sc-blueprint-backend
   RAPIDS_IMAGE: nvcr.io/nvidia/rapidsai/notebooks:26.02-cuda12-py3.12
-  # Space-separated paths relative to repo root (under /notebooks in the container). Order matters.
-  PAPERMILL_NOTEBOOKS: notebooks/01_scRNA_analysis_preprocessing.ipynb notebooks/02_scRNA_analysis_extended.ipynb notebooks/03_scRNA_analysis_with_pearson_residuals.ipynb notebooks/04_scRNA_analysis_dask_out_of_core.ipynb notebooks/05_spatial_demo.ipynb notebooks/06_scRNA_analysis_1.0M_brain_example.ipynb notebooks/07_perturbation_analysis_invivo_brain_example.ipynb
-  BLUEPRINT_TEST_IMAGE: nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest
-  # CI-only replacements for notebook 07: paths + zarr.open discovers store under cwd/h5 (walk + optional h5/zarr).
-  NB07_DATA_PATH_ZARR: /notebooks/notebooks/h5/pert/singlet_gex.zarr
-  NB07_OUT_DIR: /notebooks/notebooks/h5/edist_outputs
-  # Host copy of repo for docker mount/cp. Uses github.* only — runner context is invalid in workflow env on some GHE/validators.
-  DEST: /tmp/sc-blueprint-${{ github.run_id }}-${{ github.run_attempt }}
+  TEST_IMAGE: ${{ inputs.test_image || 'nvcr.io/rw983xdqtcdp/auto_test_team/blueprint-github-test-image:latest' }}
+  PYTEST_TIMEOUT: "900"
+  UCX_TLS: "tcp"
+  UCX_MEMTYPE_CACHE: "n"
+  UCX_NET_DEVICES: "all"
+  UCX_LOG_LEVEL: "error"
+  UCX_WARN_UNUSED_ENV_VARS: "n"
+  RAFT_USE_UCX: "0"
+  RAFT_ENABLE_UCX: "0"
+  RAFT_COMMS_UCX_ENABLED: "0"
+  DASK_SCHEDULER: "synchronous"
+  DASK_UCX__TCP: "true"
+  DASK_UCX__INFINIBAND: "false"
+  DASK_UCX__NVLINK: "false"
+  DASK_UCX__CUDA_COPY: "false"
+  CUGRAPH_USE_LEGACY_ALGO: "1"
 
 jobs:
-  rapids-papermill-pipeline:
-    name: Start RAPIDS + Papermill pipeline
-    runs-on: arc-runners-org-nvidia-ai-bp-4-gpu
+  notebook-01:
+    runs-on: arc-runners-org-nvidia-ai-bp-2-gpu
     timeout-minutes: 120
-
     steps:
-      - name: Checkout repository
+      - name: Checkout BP repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
-      - name: Sync code to DEST
+      - name: Get System Info
         run: |
-          set -euo pipefail
-          rm -rf "${DEST}"
-          mkdir -p "${DEST}"
-          cp -a "${GITHUB_WORKSPACE}/." "${DEST}/"
-          echo "Synced repo to ${DEST}"
-          ls -la "${DEST}"
+          echo "===================== System Info (notebook 01) ====================="
+          more /etc/os-release
+          nvidia-smi
+          docker version
 
-          echo "::group::Debug: Papermill notebook paths after sync (host DEST)"
-          echo "PAPERMILL_NOTEBOOKS=${{ env.PAPERMILL_NOTEBOOKS }}"
-          for nb in ${{ env.PAPERMILL_NOTEBOOKS }}; do
-            echo "  expect: ${DEST}/${nb}"
-            if [ -f "${DEST}/${nb}" ]; then
-              ls -la "${DEST}/${nb}"
-            else
-              echo "  MISSING on host"
-            fi
-          done
-          echo "::endgroup::"
-
-      - name: Pull Git LFS (if configured)
-        continue-on-error: true
-        run: |
-          cd "${{ env.DEST }}"
-          if command -v git-lfs >/dev/null 2>&1; then
-            git lfs install
-            git lfs pull
-          else
-            echo "git-lfs not on runner; skipping"
-          fi
-
-      # CI-only: smaller cell cap in notebook 06 so dense GPU steps (e.g. scale) fit runner VRAM; repo keeps 1M for local runs.
-      - name: Patch notebook 06 adata subset for CI (1M -> 500k cells)
-        env:
-          DEST: ${{ env.DEST }}
-        run: |
-          set -euo pipefail
-          NB="${DEST}/notebooks/06_scRNA_analysis_1.0M_brain_example.ipynb"
-          if [ ! -f "${NB}" ]; then
-            echo "::warning::Notebook 06 not found at ${NB}; skip adata subset patch."
-            exit 0
-          fi
-          python3 <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          nb_path = Path(os.environ["DEST"]) / "notebooks" / "06_scRNA_analysis_1.0M_brain_example.ipynb"
-          text = nb_path.read_text(encoding="utf-8")
-          nb = json.loads(text)
-          old = "adata[:1_000_000, :]"
-          new = "adata[:500_000, :]"
-          changed = 0
-          for cell in nb.get("cells", []):
-              src = cell.get("source", [])
-              if isinstance(src, list):
-                  out = []
-                  for line in src:
-                      if old in line:
-                          out.append(line.replace(old, new))
-                          changed += 1
-                      else:
-                          out.append(line)
-                  cell["source"] = out
-              elif isinstance(src, str) and old in src:
-                  cell["source"] = src.replace(old, new)
-                  changed += 1
-          if changed == 0:
-              print("No adata[:1_000_000, :] slice found; notebook unchanged.")
-              raise SystemExit(0)
-          if "\n" not in text.strip():
-              nb_path.write_text(json.dumps(nb, ensure_ascii=False) + "\n", encoding="utf-8")
-          else:
-              nb_path.write_text(json.dumps(nb, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-          print(f"Patched {old} -> {new} in {nb_path} ({changed} line(s))")
-          PY
-
-      - name: Patch notebook 07 fixed host paths for CI
-        env:
-          DEST: ${{ env.DEST }}
-          NB07_DATA_PATH_ZARR: ${{ env.NB07_DATA_PATH_ZARR }}
-          NB07_OUT_DIR: ${{ env.NB07_OUT_DIR }}
-        run: |
-          set -euo pipefail
-          NB="${DEST}/notebooks/07_perturbation_analysis_invivo_brain_example.ipynb"
-          if [ ! -f "${NB}" ]; then
-            echo "::warning::Notebook 07 not found at ${NB}; skip fixed-path patch."
-            exit 0
-          fi
-          python3 <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          nb_path = Path(os.environ["DEST"]) / "notebooks" / "07_perturbation_analysis_invivo_brain_example.ipynb"
-          data_path = os.environ["NB07_DATA_PATH_ZARR"]
-          out_dir = os.environ["NB07_OUT_DIR"]
-          text = nb_path.read_text(encoding="utf-8")
-          nb = json.loads(text)
-          changed_data = 0
-          changed_out = 0
-
-          def nb07_zarr_open_preamble():
-              return [
-                  'print(f"CI_NB07_DEBUG cwd={os.getcwd()}")\n',
-                  'print(f"CI_NB07_DEBUG DATA_PATH_ZARR={DATA_PATH_ZARR}")\n',
-                  'def _ci_nb07_find_zarr_store():\n',
-                  '    if DATA_PATH_ZARR and os.path.isdir(DATA_PATH_ZARR):\n',
-                  '        return DATA_PATH_ZARR\n',
-                  '    _hz = os.path.join(os.getcwd(), "h5", "zarr")\n',
-                  '    if os.path.isdir(_hz):\n',
-                  '        for _m in ("zarr.json", ".zgroup", ".zmetadata"):\n',
-                  '            if os.path.isfile(os.path.join(_hz, _m)):\n',
-                  '                return _hz\n',
-                  '    roots = []\n',
-                  '    for b in (\n',
-                  '        os.path.join(os.getcwd(), "h5", "pert"),\n',
-                  '        os.path.join(os.getcwd(), "h5"),\n',
-                  '        os.getcwd(),\n',
-                  '    ):\n',
-                  '        if os.path.isdir(b):\n',
-                  '            roots.append(b)\n',
-                  '    names = ("singlet_gex.zarr", "preprocessed_gex.zarr")\n',
-                  '    for name in names:\n',
-                  '        for root in roots:\n',
-                  '            p = os.path.join(root, name)\n',
-                  '            if os.path.isdir(p):\n',
-                  '                return p\n',
-                  '    for root in roots:\n',
-                  '        for r, dirs, _ in os.walk(root):\n',
-                  '            for name in names:\n',
-                  '                if name in dirs:\n',
-                  '                    return os.path.join(r, name)\n',
-                  '    return None\n',
-                  '_zarr_store = _ci_nb07_find_zarr_store()\n',
-                  'print(f"CI_NB07_DEBUG resolved_zarr_store={_zarr_store!r}")\n',
-                  '_h5 = os.path.join(os.getcwd(), "h5")\n',
-                  'print(f"CI_NB07_DEBUG h5_exists={os.path.isdir(_h5)}")\n',
-                  'if os.path.isdir(_h5):\n',
-                  '    print(f"CI_NB07_DEBUG h5_listing={os.listdir(_h5)[:40]}")\n',
-                  'if _zarr_store is None:\n',
-                  '    _hint = os.listdir(_h5)[:30] if os.path.isdir(_h5) else "missing h5"\n',
-                  '    raise FileNotFoundError(\n',
-                  '        "CI_NB07_DEBUG no zarr store (singlet/preprocessed *_gex.zarr or h5/zarr with zarr metadata) "\n',
-                  '        f"under cwd/h5; tar may have extracted to notebook dir; h5 listing={_hint!r}"\n',
-                  '    )\n',
-                  'f = zarr.open(_zarr_store, mode="r")\n',
-              ]
-
-          for cell in nb.get("cells", []):
-              if cell.get("cell_type") != "code":
-                  continue
-              src = cell.get("source", [])
-              if not isinstance(src, list):
-                  continue
-              joined = "".join(src)
-              # Replace stale CI injections (old h5/pert-only probe) so latest discovery always runs.
-              xzi = None
-              for i, line in enumerate(src):
-                  if line.strip().startswith('X_z = f["X"]'):
-                      xzi = i
-                      break
-              if xzi is not None:
-                  stale_zarr_ci = (
-                      "pert_exists" in joined
-                      or "no zarr dir under h5/pert" in joined
-                  )
-                  if stale_zarr_ci:
-                      cell["source"] = nb07_zarr_open_preamble() + src[xzi:]
-                      continue
-              new_src = []
-              for line in src:
-                  if line.startswith("DATA_PATH_ZARR = "):
-                      new_src.append(f'DATA_PATH_ZARR = "{data_path}" # CI patched path\n')
-                      changed_data += 1
-                  elif line.startswith("OUT_DIR = "):
-                      # Include singlet_gex.zarr lines: notebook reused OUT_DIR for CSV paths; must be a real output dir.
-                      new_src.append(f'OUT_DIR = "{out_dir}" # CI patched output dir\n')
-                      changed_out += 1
-                  elif line.strip() == 'f = zarr.open(OUT_DIR, mode="r")':
-                      new_src.extend(nb07_zarr_open_preamble())
-                  else:
-                      new_src.append(line)
-              cell["source"] = new_src
-
-          nb_path.write_text(json.dumps(nb, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-          print(
-              f"Notebook 07 fixed-path patch: DATA_PATH_ZARR edits={changed_data}, "
-              f"OUT_DIR edits={changed_out}, nb={nb_path}"
-          )
-          PY
-
-      - name: Docker login to NGC (required for nvcr.io)
+      - name: Login to nvcr.io
         env:
           NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
         run: |
-          set -euo pipefail
-          KEY="${NGC_API_KEY:-${NVIDIA_API_KEY:-}}"
-          if [ -z "${KEY}" ]; then
-            echo "::error::nvcr.io requires NGC login. Add repository secret NGC_API_KEY (or NVIDIA_API_KEY)."
-            echo "Create a key: https://org.ngc.nvidia.com/setup/api-keys — Docker username is literally: \$oauthtoken"
+          if [ -z "${NGC_API_KEY:-}" ]; then
+            echo "::error::repository secret NGC_API_KEY is not set"
             exit 1
           fi
-          echo "${KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
-          echo "NGC docker login OK"
+          echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
 
-      - name: Stop any previous container
+      - name: Run 01_scRNA_analysis_preprocessing.ipynb in the RAPIDS container
+        run: |
+          mkdir -p results
+          docker run --rm --gpus all \
+            --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 \
+            --user root \
+            -e UCX_TLS -e UCX_MEMTYPE_CACHE -e UCX_NET_DEVICES -e UCX_LOG_LEVEL -e UCX_WARN_UNUSED_ENV_VARS -e RAFT_USE_UCX -e RAFT_ENABLE_UCX -e RAFT_COMMS_UCX_ENABLED -e DASK_SCHEDULER -e DASK_UCX__TCP -e DASK_UCX__INFINIBAND -e DASK_UCX__NVLINK -e DASK_UCX__CUDA_COPY -e CUGRAPH_USE_LEGACY_ALGO \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -v "$(pwd)":/notebooks -w /notebooks \
+            "${RAPIDS_IMAGE}" \
+            bash -c '
+              set -uo pipefail
+              trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
+              set -e
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.local/bin:$PATH"
+              uv pip install --system -r requirements.txt
+              mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
+              pip install papermill nbconvert ipykernel
+              set +e
+              cd /notebooks/notebooks
+              papermill 01_scRNA_analysis_preprocessing.ipynb /notebooks/results/std_01_scRNA_analysis_preprocessing.ipynb --log-output --kernel python3
+              rc=$?
+              jupyter nbconvert --to html /notebooks/results/std_01_scRNA_analysis_preprocessing.ipynb --output-dir /notebooks/results --output std_01_scRNA_analysis_preprocessing
+              exit $rc
+            '
+          if [ ! -s "results/std_01_scRNA_analysis_preprocessing.html" ]; then
+            echo "::error::results/std_01_scRNA_analysis_preprocessing.html not created"
+            exit 1
+          fi
+
+      - name: Upload h5/dli_decoupler.h5ad for notebook 02
+        uses: actions/upload-artifact@v4
+        with:
+          name: single-cell-h5-dli-decoupler
+          path: notebooks/h5/dli_decoupler.h5ad
+          retention-days: 1
+          if-no-files-found: error
+
+      - name: Upload executed notebook
         if: always()
-        run: docker rm -f "${{ env.CONTAINER_NAME }}" 2>/dev/null || true
+        uses: actions/upload-artifact@v4
+        with:
+          name: single-cell-nb-01
+          path: |
+            results/std_01_scRNA_analysis_preprocessing.html
+            results/std_01_scRNA_analysis_preprocessing.ipynb
+          retention-days: 14
+          if-no-files-found: warn
 
-      - name: Start RAPIDS backend (PID 1 keeps container alive)
+      - name: Cleanup Docker resources
+        if: always()
         run: |
-          set -euo pipefail
-          DEST="${{ env.DEST }}"
-          NAME="${{ env.CONTAINER_NAME }}"
-          IMG="${{ env.RAPIDS_IMAGE }}"
+          docker ps --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker stop 2>/dev/null || true
+          docker ps -a --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker rm 2>/dev/null || true
+          docker rmi "${RAPIDS_IMAGE}" 2>/dev/null || true
+          docker image prune -f
 
-          COMMON_ARGS=(
-            -d
-            --name "${NAME}"
-            --pull always
-            --ulimit memlock=-1
-            --ulimit stack=67108864
-            --shm-size=1g
-            --gpus all
-            -p 0.0.0.0:8888:8888
-            -p 0.0.0.0:8787:8787
-            -p 0.0.0.0:8786:8786
-            -v "${DEST}:/notebooks"
-            -u root
-            -w /notebooks
-            --entrypoint /home/rapids/entrypoint.sh
-          )
+  notebook-02:
+    needs: notebook-01
+    if: ${{ !cancelled() }}
+    runs-on: arc-runners-org-nvidia-ai-bp-2-gpu
+    timeout-minutes: 120
+    steps:
+      - name: Checkout BP repository
+        uses: actions/checkout@v4
 
-          docker run "${COMMON_ARGS[@]}" "${IMG}" \
-            bash -lc 'sleep infinity'
-
-          sleep 5
-          docker ps -a --filter "name=${NAME}"
-
-      - name: Wait for container stable (running, not restarting)
+      - name: Get System Info
         run: |
-          set -euo pipefail
-          NAME="${{ env.CONTAINER_NAME }}"
-          for i in $(seq 1 90); do
-            STATUS=$(docker inspect -f '{{.State.Status}}' "${NAME}" 2>/dev/null || echo missing)
-            RC=$(docker inspect -f '{{.State.ExitCode}}' "${NAME}" 2>/dev/null || echo -1)
+          echo "===================== System Info (notebook 02) ====================="
+          more /etc/os-release
+          nvidia-smi
+          docker version
 
-            if [ "${STATUS}" = "exited" ] || [ "${STATUS}" = "dead" ]; then
-              echo "::error::Container stopped with status=${STATUS} exit_code=${RC}"
-              docker logs "${NAME}" 2>&1 | tail -300 || true
-              exit 1
-            fi
-
-            if [ "${STATUS}" = "running" ]; then
-              sleep 4
-              STATUS2=$(docker inspect -f '{{.State.Status}}' "${NAME}")
-              if [ "${STATUS2}" = "running" ]; then
-                echo "Container is stable (running)"
-                exit 0
-              fi
-            fi
-
-            echo "[$i] status=${STATUS} (waiting for stable running...)"
-            sleep 2
-          done
-
-          echo "::error::Container did not become stable in time"
-          docker ps -a --filter "name=${NAME}"
-          docker logs "${NAME}" 2>&1 | tail -300 || true
-          exit 1
-
-      # Bind mounts are resolved on the Docker *daemon* host. On some ARC / remote-socket
-      # setups that is not the runner, so /home/runner/... on the daemon can be empty while
-      # the runner has files. docker cp streams from the runner into the container.
-      - name: Copy synced workspace into container (docker cp)
-        run: |
-          set -euo pipefail
-          NAME="${{ env.CONTAINER_NAME }}"
-          DEST="${{ env.DEST }}"
-          echo "docker cp ${DEST} -> ${NAME}:/notebooks/"
-          docker cp "${DEST}/." "${NAME}:/notebooks/"
-          docker exec -w /notebooks "${NAME}" bash -c 'echo "Sample under /notebooks:"; ls -la | head -25'
-
-      - name: Debug — locate Papermill notebooks (host + container)
-        run: |
-          set -euo pipefail
-          NAME="${{ env.CONTAINER_NAME }}"
-          DEST="${{ env.DEST }}"
-          echo "::group::Debug: notebooks after docker cp (host + /notebooks)"
-          for nb in ${{ env.PAPERMILL_NOTEBOOKS }}; do
-            echo "=== ${nb} (host) ==="
-            if [ -f "${DEST}/${nb}" ]; then ls -la "${DEST}/${nb}"; else echo "MISSING"; fi
-          done
-          echo "=== .ipynb under DEST (maxdepth 4, first 30) ==="
-          find "${DEST}" -maxdepth 4 -type f -name '*.ipynb' 2>/dev/null | head -30 || true
-          echo "=== Inside container ==="
-          docker exec -w /notebooks "${NAME}" bash -c '
-            for nb in '"${{ env.PAPERMILL_NOTEBOOKS }}"'; do
-              echo "container: /notebooks/${nb}"
-              if [ -f "/notebooks/${nb}" ]; then ls -la "/notebooks/${nb}"; else echo "MISSING"; fi
-            done
-          '
-          echo "::endgroup::"
-
-      # Inline former setup_launchable.sh: uv, requirements.txt, mamba cupy/numpy
-      - name: Install uv, requirements, and mamba packages (inside container)
-        run: |
-          set -euo pipefail
-          NAME="${{ env.CONTAINER_NAME }}"
-          install_script="${RUNNER_TEMP:-/tmp}/sc-inline-setup.sh"
-          cat <<'SETUP_EOF' > "${install_script}"
-          set -euo pipefail
-          # Install uv
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          export PATH="$HOME/.local/bin:$PATH"
-          uv --version
-
-          cd /notebooks
-          if [ -f requirements.txt ]; then
-            uv pip install --system -r requirements.txt
-          else
-            echo "WARNING: requirements.txt not found under /notebooks; skipping uv pip install"
-          fi
-
-          if [ -f /opt/conda/etc/profile.d/conda.sh ]; then
-            source /opt/conda/etc/profile.d/conda.sh
-          elif [ -f /usr/local/etc/profile.d/conda.sh ]; then
-            source /usr/local/etc/profile.d/conda.sh
-          else
-            echo "ERROR: Could not find conda.sh to run mamba"
-            exit 1
-          fi
-          # CuPy uses CONDA_PREFIX for CUDA toolkit paths; sourcing conda.sh alone often leaves it unset.
-          conda activate base
-
-          mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
-          SETUP_EOF
-          chmod +x "${install_script}"
-          docker cp "${install_script}" "${NAME}:/tmp/sc-inline-setup.sh"
-          docker exec -w /notebooks "${NAME}" bash -e /tmp/sc-inline-setup.sh
-
-      - name: Papermill notebooks inside container (sequential, same kernel strip)
+      - name: Login to nvcr.io
         env:
-          # Optional: HF sometimes rejects anonymous wget/curl; set repo secret if downloads fail.
-          HF_TOKEN: ${{ secrets.HUGGING_FACE_HUB_TOKEN }}
+          NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
         run: |
-          set -euo pipefail
-          NAME="${{ env.CONTAINER_NAME }}"
-          DEST="${{ env.DEST }}"
-          STATUS=$(docker inspect -f '{{.State.Status}}' "${NAME}")
-          if [ "${STATUS}" != "running" ]; then
-            echo "::error::Refusing docker exec: status=${STATUS}"
-            docker logs "${NAME}" 2>&1 | tail -200 || true
+          if [ -z "${NGC_API_KEY:-}" ]; then
+            echo "::error::repository secret NGC_API_KEY is not set"
+            exit 1
+          fi
+          echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+
+      - name: Download notebook 01 output (h5/dli_decoupler.h5ad)
+        uses: actions/download-artifact@v4
+        with:
+          name: single-cell-h5-dli-decoupler
+          path: notebooks/h5
+
+      - name: Run 02_scRNA_analysis_extended.ipynb in the RAPIDS container
+        run: |
+          mkdir -p results
+          docker run --rm --gpus all \
+            --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 \
+            --user root \
+            -e UCX_TLS -e UCX_MEMTYPE_CACHE -e UCX_NET_DEVICES -e UCX_LOG_LEVEL -e UCX_WARN_UNUSED_ENV_VARS -e RAFT_USE_UCX -e RAFT_ENABLE_UCX -e RAFT_COMMS_UCX_ENABLED -e DASK_SCHEDULER -e DASK_UCX__TCP -e DASK_UCX__INFINIBAND -e DASK_UCX__NVLINK -e DASK_UCX__CUDA_COPY -e CUGRAPH_USE_LEGACY_ALGO \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -v "$(pwd)":/notebooks -w /notebooks \
+            "${RAPIDS_IMAGE}" \
+            bash -c '
+              set -uo pipefail
+              trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
+              set -e
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.local/bin:$PATH"
+              uv pip install --system -r requirements.txt
+              mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
+              pip install papermill nbconvert ipykernel
+              set +e
+              cd /notebooks/notebooks
+              papermill 02_scRNA_analysis_extended.ipynb /notebooks/results/std_02_scRNA_analysis_extended.ipynb --log-output --kernel python3
+              rc=$?
+              jupyter nbconvert --to html /notebooks/results/std_02_scRNA_analysis_extended.ipynb --output-dir /notebooks/results --output std_02_scRNA_analysis_extended
+              exit $rc
+            '
+          if [ ! -s "results/std_02_scRNA_analysis_extended.html" ]; then
+            echo "::error::results/std_02_scRNA_analysis_extended.html not created"
             exit 1
           fi
 
-          STRIP_HOST="${RUNNER_TEMP:-/tmp}/ci_strip_kernel_shutdown.py"
-          # Delimiter must not appear in the Python body; avoid two-letter EOF names.
-          cat <<'CI_STRIP_KERNEL_SHUTDOWN_PY' > "${STRIP_HOST}"
-          import json
-          import sys
-          from pathlib import Path
+      - name: Upload executed notebook
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: single-cell-nb-02
+          path: |
+            results/std_02_scRNA_analysis_extended.html
+            results/std_02_scRNA_analysis_extended.ipynb
+          retention-days: 14
+          if-no-files-found: warn
 
-          MARKERS = ("do_shutdown(True)", "IPython.Application.instance()")
-
-          def main() -> int:
-              if len(sys.argv) != 3:
-                  print(
-                      "usage: ci_strip_kernel_shutdown.py <input.ipynb> <output.ipynb>",
-                      file=sys.stderr,
-                  )
-                  return 2
-              inp, outp = Path(sys.argv[1]), Path(sys.argv[2])
-              nb = json.loads(inp.read_text(encoding="utf-8"))
-              cells = nb.get("cells", [])
-              kept = []
-              removed = 0
-              for c in cells:
-                  if c.get("cell_type") != "code":
-                      kept.append(c)
-                      continue
-                  src = "".join(c.get("source", []))
-                  if all(m in src for m in MARKERS):
-                      removed += 1
-                      continue
-                  kept.append(c)
-              nb["cells"] = kept
-              outp.parent.mkdir(parents=True, exist_ok=True)
-              with outp.open("w", encoding="utf-8") as f:
-                  json.dump(nb, f, ensure_ascii=False)
-                  f.write("\n")
-              print(f"ci_strip_kernel_shutdown: removed {removed} shutdown cell(s) -> {outp}")
-              return 0
-
-          if __name__ == "__main__":
-              raise SystemExit(main())
-          CI_STRIP_KERNEL_SHUTDOWN_PY
-          docker cp "${STRIP_HOST}" "${NAME}:/tmp/ci_strip_kernel_shutdown.py"
-
-          # stdin script avoids bash -ce '...' (fragile if a line ever contains a single quote).
-          docker exec -i -w /notebooks "${NAME}" \
-            env PAPERMILL_LIST="${{ env.PAPERMILL_NOTEBOOKS }}" \
-            HF_TOKEN="${HF_TOKEN:-}" \
-            bash -s <<'CI_PAPERMILL_INNER'
-          if [ -f /opt/conda/etc/profile.d/conda.sh ]; then
-            source /opt/conda/etc/profile.d/conda.sh
-          elif [ -f /usr/local/etc/profile.d/conda.sh ]; then
-            source /usr/local/etc/profile.d/conda.sh
-          fi
-          conda activate base
-          set -euo pipefail
-          mkdir -p /notebooks/notebook_output /tmp/papermill_stripped
-          STRIP=/tmp/ci_strip_kernel_shutdown.py
-          python -m pip install -q --upgrade pip
-          python -m pip install -q papermill nbclient nbformat ipykernel jupyter nbconvert
-          python -m ipykernel install --user --name python3 --display-name "Python 3"
-          for NB_REL in ${PAPERMILL_LIST}; do
-            NB_IN="/notebooks/${NB_REL}"
-            if [ ! -f "${NB_IN}" ]; then
-              echo "::error::Notebook not found at ${NB_IN}. Adjust env PAPERMILL_NOTEBOOKS."
-              find /notebooks -maxdepth 5 -name "*.ipynb" -print | head -80 || true
-              exit 1
-            fi
-            BASENAME=$(basename "${NB_REL}" .ipynb)
-            OUT_IN="/notebooks/notebook_output/result_${BASENAME}.ipynb"
-            STRIPPED="/tmp/papermill_stripped/${BASENAME}.ipynb"
-            case "${BASENAME}" in
-              07_*)
-                echo "::group::nvidia-smi before ${NB_REL}"
-                nvidia-smi
-                echo "::endgroup::"
-                ;;
-            esac
-            echo "::group::Papermill ${NB_REL}"
-            python3 "${STRIP}" "${NB_IN}" "${STRIPPED}"
-            NB_DIR=$(dirname "${NB_IN}")
-            set +e
-            python -m papermill "${STRIPPED}" "${OUT_IN}" \
-              --cwd "${NB_DIR}" \
-              --log-output \
-              --progress-bar \
-              --kernel python3
-            PM_RC=$?
-            set -e
-            if [ -f "${OUT_IN}" ]; then
-              python -m nbconvert --to html "${OUT_IN}" \
-                || echo "::warning::nbconvert failed for ${OUT_IN} (papermill rc=${PM_RC})"
-            fi
-            if [ "${PM_RC}" -ne 0 ]; then
-              echo "::endgroup::"
-              exit "${PM_RC}"
-            fi
-            echo "::endgroup::"
-            # IPython.Application.instance().kernel.do_shutdown(True) only works inside a live Jupyter
-            # kernel. Each papermill run is already a separate process that exits when the notebook
-            # finishes, so there is no kernel to shut down here. Stray Dask/distributed worker PIDs
-            # can outlive papermill if shutdown cells were stripped — clean those before the next nb.
-            echo "::group::Between-notebook GPU cleanup"
-            pkill -f '[d]istributed.worker' 2>/dev/null || true
-            pkill -f '[d]ask.worker' 2>/dev/null || true
-            pkill -f '[d]ask-cuda-worker' 2>/dev/null || true
-            pkill -f '[d]ask worker' 2>/dev/null || true
-            sleep 2
-            nvidia-smi --query-gpu=index,memory.used,memory.free --format=csv,noheader 2>/dev/null || true
-            echo "::endgroup::"
-          done
-          CI_PAPERMILL_INNER
-
-      # If any notebook fails, docker exec exits before this step would run in the same script — so copy
-      # must be a separate always() step so partial outputs in the container still reach the runner.
-      - name: Copy notebook_output from container to runner
+      - name: Cleanup Docker resources
         if: always()
         run: |
-          set -euo pipefail
-          NAME="${{ env.CONTAINER_NAME }}"
-          DEST="${{ env.DEST }}"
-          mkdir -p "${DEST}/notebook_output"
-          if ! docker inspect "${NAME}" >/dev/null 2>&1; then
-            echo "::warning::No container ${NAME}; nothing to copy."
-            exit 0
-          fi
-          STATUS=$(docker inspect -f '{{.State.Status}}' "${NAME}" 2>/dev/null || echo missing)
-          echo "Container ${NAME} status=${STATUS} (docker cp works while container exists, including exited)."
-          set +e
-          docker cp "${NAME}:/notebooks/notebook_output/." "${DEST}/notebook_output/"
-          CP_RC=$?
-          set -e
-          if [ "${CP_RC}" != 0 ]; then
-            echo "::warning::docker cp notebook_output failed (rc=${CP_RC})."
-          fi
-          echo "Runner notebook_output listing:"
-          ls -la "${DEST}/notebook_output" || true
-          find "${DEST}/notebook_output" -type f 2>/dev/null | head -50 || true
+          docker ps --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker stop 2>/dev/null || true
+          docker ps -a --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker rm 2>/dev/null || true
+          docker rmi "${RAPIDS_IMAGE}" 2>/dev/null || true
+          docker image prune -f
 
-      # Stage nbconvert HTML as filenames expected by blueprint-github-test-image (see input/single_cell_analysis/v1.2.0/).
+  notebook-03:
+    needs: notebook-02
+    if: ${{ !cancelled() }}
+    runs-on: arc-runners-org-nvidia-ai-bp-2-gpu
+    timeout-minutes: 120
+    steps:
+      - name: Checkout BP repository
+        uses: actions/checkout@v4
+
+      - name: Get System Info
+        run: |
+          echo "===================== System Info (notebook 03) ====================="
+          more /etc/os-release
+          nvidia-smi
+          docker version
+
+      - name: Login to nvcr.io
+        env:
+          NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
+        run: |
+          if [ -z "${NGC_API_KEY:-}" ]; then
+            echo "::error::repository secret NGC_API_KEY is not set"
+            exit 1
+          fi
+          echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+
+      - name: Run 03_scRNA_analysis_with_pearson_residuals.ipynb in the RAPIDS container
+        run: |
+          mkdir -p results
+          docker run --rm --gpus all \
+            --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 \
+            --user root \
+            -e UCX_TLS -e UCX_MEMTYPE_CACHE -e UCX_NET_DEVICES -e UCX_LOG_LEVEL -e UCX_WARN_UNUSED_ENV_VARS -e RAFT_USE_UCX -e RAFT_ENABLE_UCX -e RAFT_COMMS_UCX_ENABLED -e DASK_SCHEDULER -e DASK_UCX__TCP -e DASK_UCX__INFINIBAND -e DASK_UCX__NVLINK -e DASK_UCX__CUDA_COPY -e CUGRAPH_USE_LEGACY_ALGO \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -v "$(pwd)":/notebooks -w /notebooks \
+            "${RAPIDS_IMAGE}" \
+            bash -c '
+              set -uo pipefail
+              trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
+              set -e
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.local/bin:$PATH"
+              uv pip install --system -r requirements.txt
+              mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
+              pip install papermill nbconvert ipykernel
+              set +e
+              cd /notebooks/notebooks
+              papermill 03_scRNA_analysis_with_pearson_residuals.ipynb /notebooks/results/std_03_scRNA_analysis_with_pearson_residuals.ipynb --log-output --kernel python3
+              rc=$?
+              jupyter nbconvert --to html /notebooks/results/std_03_scRNA_analysis_with_pearson_residuals.ipynb --output-dir /notebooks/results --output std_03_scRNA_analysis_with_pearson_residuals
+              exit $rc
+            '
+          if [ ! -s "results/std_03_scRNA_analysis_with_pearson_residuals.html" ]; then
+            echo "::error::results/std_03_scRNA_analysis_with_pearson_residuals.html not created"
+            exit 1
+          fi
+
+      - name: Upload executed notebook
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: single-cell-nb-03
+          path: |
+            results/std_03_scRNA_analysis_with_pearson_residuals.html
+            results/std_03_scRNA_analysis_with_pearson_residuals.ipynb
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Cleanup Docker resources
+        if: always()
+        run: |
+          docker ps --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker stop 2>/dev/null || true
+          docker ps -a --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker rm 2>/dev/null || true
+          docker rmi "${RAPIDS_IMAGE}" 2>/dev/null || true
+          docker image prune -f
+
+  notebook-04:
+    needs: notebook-03
+    if: ${{ !cancelled() }}
+    runs-on: arc-runners-org-nvidia-ai-bp-2-gpu
+    timeout-minutes: 120
+    steps:
+      - name: Checkout BP repository
+        uses: actions/checkout@v4
+
+      - name: Get System Info
+        run: |
+          echo "===================== System Info (notebook 04) ====================="
+          more /etc/os-release
+          nvidia-smi
+          docker version
+
+      - name: Login to nvcr.io
+        env:
+          NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
+        run: |
+          if [ -z "${NGC_API_KEY:-}" ]; then
+            echo "::error::repository secret NGC_API_KEY is not set"
+            exit 1
+          fi
+          echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+
+      - name: Run 04_scRNA_analysis_dask_out_of_core.ipynb in the RAPIDS container
+        run: |
+          mkdir -p results
+          docker run --rm --gpus all \
+            --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 \
+            --user root \
+            -e UCX_TLS -e UCX_MEMTYPE_CACHE -e UCX_NET_DEVICES -e UCX_LOG_LEVEL -e UCX_WARN_UNUSED_ENV_VARS -e RAFT_USE_UCX -e RAFT_ENABLE_UCX -e RAFT_COMMS_UCX_ENABLED -e DASK_SCHEDULER -e DASK_UCX__TCP -e DASK_UCX__INFINIBAND -e DASK_UCX__NVLINK -e DASK_UCX__CUDA_COPY -e CUGRAPH_USE_LEGACY_ALGO \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -v "$(pwd)":/notebooks -w /notebooks \
+            "${RAPIDS_IMAGE}" \
+            bash -c '
+              set -uo pipefail
+              trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
+              set -e
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.local/bin:$PATH"
+              uv pip install --system -r requirements.txt
+              mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
+              pip install papermill nbconvert ipykernel
+              set +e
+              cd /notebooks/notebooks
+              papermill 04_scRNA_analysis_dask_out_of_core.ipynb /notebooks/results/adv_04_scRNA_analysis_dask_out_of_core.ipynb --log-output --kernel python3
+              rc=$?
+              jupyter nbconvert --to html /notebooks/results/adv_04_scRNA_analysis_dask_out_of_core.ipynb --output-dir /notebooks/results --output adv_04_scRNA_analysis_dask_out_of_core
+              exit $rc
+            '
+          if [ ! -s "results/adv_04_scRNA_analysis_dask_out_of_core.html" ]; then
+            echo "::error::results/adv_04_scRNA_analysis_dask_out_of_core.html not created"
+            exit 1
+          fi
+
+      - name: Upload executed notebook
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: single-cell-nb-04
+          path: |
+            results/adv_04_scRNA_analysis_dask_out_of_core.html
+            results/adv_04_scRNA_analysis_dask_out_of_core.ipynb
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Cleanup Docker resources
+        if: always()
+        run: |
+          docker ps --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker stop 2>/dev/null || true
+          docker ps -a --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker rm 2>/dev/null || true
+          docker rmi "${RAPIDS_IMAGE}" 2>/dev/null || true
+          docker image prune -f
+
+  notebook-05:
+    needs: notebook-04
+    if: ${{ !cancelled() }}
+    runs-on: arc-runners-org-nvidia-ai-bp-2-gpu
+    timeout-minutes: 120
+    steps:
+      - name: Checkout BP repository
+        uses: actions/checkout@v4
+
+      - name: Get System Info
+        run: |
+          echo "===================== System Info (notebook 05) ====================="
+          more /etc/os-release
+          nvidia-smi
+          docker version
+
+      - name: Login to nvcr.io
+        env:
+          NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
+        run: |
+          if [ -z "${NGC_API_KEY:-}" ]; then
+            echo "::error::repository secret NGC_API_KEY is not set"
+            exit 1
+          fi
+          echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+
+      - name: Run 05_spatial_demo.ipynb in the RAPIDS container
+        run: |
+          mkdir -p results
+          docker run --rm --gpus all \
+            --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 \
+            --user root \
+            -e UCX_TLS -e UCX_MEMTYPE_CACHE -e UCX_NET_DEVICES -e UCX_LOG_LEVEL -e UCX_WARN_UNUSED_ENV_VARS -e RAFT_USE_UCX -e RAFT_ENABLE_UCX -e RAFT_COMMS_UCX_ENABLED -e DASK_SCHEDULER -e DASK_UCX__TCP -e DASK_UCX__INFINIBAND -e DASK_UCX__NVLINK -e DASK_UCX__CUDA_COPY -e CUGRAPH_USE_LEGACY_ALGO \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -v "$(pwd)":/notebooks -w /notebooks \
+            "${RAPIDS_IMAGE}" \
+            bash -c '
+              set -uo pipefail
+              trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
+              set -e
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.local/bin:$PATH"
+              uv pip install --system -r requirements.txt
+              mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
+              pip install papermill nbconvert ipykernel
+              set +e
+              cd /notebooks/notebooks
+              papermill 05_spatial_demo.ipynb /notebooks/results/adv_05_spatial_demo.ipynb --log-output --kernel python3
+              rc=$?
+              jupyter nbconvert --to html /notebooks/results/adv_05_spatial_demo.ipynb --output-dir /notebooks/results --output adv_05_spatial_demo
+              exit $rc
+            '
+          if [ ! -s "results/adv_05_spatial_demo.html" ]; then
+            echo "::error::results/adv_05_spatial_demo.html not created"
+            exit 1
+          fi
+
+      - name: Upload executed notebook
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: single-cell-nb-05
+          path: |
+            results/adv_05_spatial_demo.html
+            results/adv_05_spatial_demo.ipynb
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Cleanup Docker resources
+        if: always()
+        run: |
+          docker ps --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker stop 2>/dev/null || true
+          docker ps -a --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker rm 2>/dev/null || true
+          docker rmi "${RAPIDS_IMAGE}" 2>/dev/null || true
+          docker image prune -f
+
+  notebook-06:
+    needs: notebook-05
+    if: ${{ !cancelled() }}
+    runs-on: arc-runners-org-nvidia-ai-bp-2-gpu
+    timeout-minutes: 120
+    steps:
+      - name: Checkout BP repository
+        uses: actions/checkout@v4
+
+      - name: Get System Info
+        run: |
+          echo "===================== System Info (notebook 06) ====================="
+          more /etc/os-release
+          nvidia-smi
+          docker version
+
+      - name: Login to nvcr.io
+        env:
+          NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
+        run: |
+          if [ -z "${NGC_API_KEY:-}" ]; then
+            echo "::error::repository secret NGC_API_KEY is not set"
+            exit 1
+          fi
+          echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+
+      - name: Run 06_scRNA_analysis_1.0M_brain_example.ipynb in the RAPIDS container
+        run: |
+          mkdir -p results
+          docker run --rm --gpus all \
+            --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 \
+            --user root \
+            -e UCX_TLS -e UCX_MEMTYPE_CACHE -e UCX_NET_DEVICES -e UCX_LOG_LEVEL -e UCX_WARN_UNUSED_ENV_VARS -e RAFT_USE_UCX -e RAFT_ENABLE_UCX -e RAFT_COMMS_UCX_ENABLED -e DASK_SCHEDULER -e DASK_UCX__TCP -e DASK_UCX__INFINIBAND -e DASK_UCX__NVLINK -e DASK_UCX__CUDA_COPY -e CUGRAPH_USE_LEGACY_ALGO \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -v "$(pwd)":/notebooks -w /notebooks \
+            "${RAPIDS_IMAGE}" \
+            bash -c '
+              set -uo pipefail
+              trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
+              set -e
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.local/bin:$PATH"
+              uv pip install --system -r requirements.txt
+              mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
+              pip install papermill nbconvert ipykernel
+              set +e
+              cd /notebooks/notebooks
+              papermill 06_scRNA_analysis_1.0M_brain_example.ipynb /notebooks/results/adv_06_scRNA_analysis_1.0M_brain_example.ipynb --log-output --kernel python3
+              rc=$?
+              jupyter nbconvert --to html /notebooks/results/adv_06_scRNA_analysis_1.0M_brain_example.ipynb --output-dir /notebooks/results --output adv_06_scRNA_analysis_1.0M_brain_example
+              exit $rc
+            '
+          if [ ! -s "results/adv_06_scRNA_analysis_1.0M_brain_example.html" ]; then
+            echo "::error::results/adv_06_scRNA_analysis_1.0M_brain_example.html not created"
+            exit 1
+          fi
+
+      - name: Upload executed notebook
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: single-cell-nb-06
+          path: |
+            results/adv_06_scRNA_analysis_1.0M_brain_example.html
+            results/adv_06_scRNA_analysis_1.0M_brain_example.ipynb
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Cleanup Docker resources
+        if: always()
+        run: |
+          docker ps --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker stop 2>/dev/null || true
+          docker ps -a --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker rm 2>/dev/null || true
+          docker rmi "${RAPIDS_IMAGE}" 2>/dev/null || true
+          docker image prune -f
+
+  notebook-07:
+    needs: notebook-06
+    if: ${{ !cancelled() }}
+    runs-on: arc-runners-org-nvidia-ai-bp-2-gpu
+    timeout-minutes: 120
+    steps:
+      - name: Checkout BP repository
+        uses: actions/checkout@v4
+
+      - name: Get System Info
+        run: |
+          echo "===================== System Info (notebook 07) ====================="
+          more /etc/os-release
+          nvidia-smi
+          docker version
+
+      - name: Login to nvcr.io
+        env:
+          NGC_API_KEY: ${{ secrets.NGC_API_KEY }}
+        run: |
+          if [ -z "${NGC_API_KEY:-}" ]; then
+            echo "::error::repository secret NGC_API_KEY is not set"
+            exit 1
+          fi
+          echo "${NGC_API_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+
+      - name: Run 07_perturbation_analysis_invivo_brain_example.ipynb in the RAPIDS container
+        run: |
+          mkdir -p results
+          docker run --rm --gpus all \
+            --shm-size=1g --ulimit memlock=-1 --ulimit stack=67108864 \
+            --user root \
+            -e UCX_TLS -e UCX_MEMTYPE_CACHE -e UCX_NET_DEVICES -e UCX_LOG_LEVEL -e UCX_WARN_UNUSED_ENV_VARS -e RAFT_USE_UCX -e RAFT_ENABLE_UCX -e RAFT_COMMS_UCX_ENABLED -e DASK_SCHEDULER -e DASK_UCX__TCP -e DASK_UCX__INFINIBAND -e DASK_UCX__NVLINK -e DASK_UCX__CUDA_COPY -e CUGRAPH_USE_LEGACY_ALGO \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -v "$(pwd)":/notebooks -w /notebooks \
+            "${RAPIDS_IMAGE}" \
+            bash -c '
+              set -uo pipefail
+              trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
+              set -e
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.local/bin:$PATH"
+              uv pip install --system -r requirements.txt
+              mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
+              pip install papermill nbconvert ipykernel
+              set +e
+              cd /notebooks/notebooks
+              papermill 07_perturbation_analysis_invivo_brain_example.ipynb /notebooks/results/adv_07_perturbation_analysis_invivo_brain_example.ipynb --log-output --kernel python3
+              rc=$?
+              jupyter nbconvert --to html /notebooks/results/adv_07_perturbation_analysis_invivo_brain_example.ipynb --output-dir /notebooks/results --output adv_07_perturbation_analysis_invivo_brain_example
+              exit $rc
+            '
+          if [ ! -s "results/adv_07_perturbation_analysis_invivo_brain_example.html" ]; then
+            echo "::error::results/adv_07_perturbation_analysis_invivo_brain_example.html not created"
+            exit 1
+          fi
+
+      - name: Upload executed notebook
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: single-cell-nb-07
+          path: |
+            results/adv_07_perturbation_analysis_invivo_brain_example.html
+            results/adv_07_perturbation_analysis_invivo_brain_example.ipynb
+          retention-days: 14
+          if-no-files-found: warn
+
+      - name: Cleanup Docker resources
+        if: always()
+        run: |
+          docker ps --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker stop 2>/dev/null || true
+          docker ps -a --filter "ancestor=${RAPIDS_IMAGE}" -q | xargs -r docker rm 2>/dev/null || true
+          docker rmi "${RAPIDS_IMAGE}" 2>/dev/null || true
+          docker image prune -f
+
+  test:
+    needs: [notebook-01, notebook-02, notebook-03, notebook-04, notebook-05, notebook-06, notebook-07]
+    if: ${{ !cancelled() }}
+    runs-on: arc-runners-org-nvidia-ai-bp-2-gpu
+    timeout-minutes: 120
+    steps:
+      - name: Download executed notebooks
+        uses: actions/download-artifact@v4
+        with:
+          pattern: single-cell-nb-*
+          path: qa-input
+          merge-multiple: true
+
+      - name: Check notebook HTML files
+        run: |
+          missing=0
+          for f in \
+            std_01_scRNA_analysis_preprocessing.html \
+            std_02_scRNA_analysis_extended.html \
+            std_03_scRNA_analysis_with_pearson_residuals.html \
+            adv_04_scRNA_analysis_dask_out_of_core.html \
+            adv_05_spatial_demo.html \
+            adv_06_scRNA_analysis_1.0M_brain_example.html \
+            adv_07_perturbation_analysis_invivo_brain_example.html \
+          ; do
+            if [ ! -s "qa-input/$f" ]; then
+              echo "::error::qa-input/$f missing"
+              missing=1
+            fi
+          done
+          ls -la qa-input
+          exit $missing
+
       - name: Run Test Code
         if: always()
         env:
           TEST_DOCKER_PULL_KEY: ${{ secrets.TEST_DOCKER_PULL_KEY }}
-          DEST: ${{ env.DEST }}
         run: |
-          set -euo pipefail
           if [ -z "${TEST_DOCKER_PULL_KEY:-}" ]; then
-            echo "Skipping Run Test Code: repository secret TEST_DOCKER_PULL_KEY is not set."
-            exit 0
+            echo "::error::repository secret TEST_DOCKER_PULL_KEY is not set"
+            exit 1
           fi
-          echo "======================================="
-          echo "${TEST_DOCKER_PULL_KEY}" | docker login nvcr.io --username '$oauthtoken' --password-stdin
+          echo "${TEST_DOCKER_PULL_KEY}" | docker login nvcr.io -u '$oauthtoken' --password-stdin
+          mkdir -p report
+          docker run --rm \
+            -v "$(pwd)/qa-input":/app/input/single_cell_analysis/v1.2.0 \
+            -v "$(pwd)/report":/workspace \
+            "${TEST_IMAGE}" \
+            pytest testcases/test_single_cell_notebook.py -m "single_cell and notebook" \
+              --timeout="${PYTEST_TIMEOUT}" --disable-warnings \
+              --junitxml=/workspace/single_cell.xml \
+              --html=/workspace/single_cell.html --self-contained-html
+          if [ ! -s report/single_cell.html ]; then
+            echo "::error::pytest report not created"
+            exit 1
+          fi
 
-          SRC="${DEST}/notebook_output"
-          STAGING="${DEST}/blueprint_test_mount/input/single_cell_analysis/v1.2.0"
-          mkdir -p "${STAGING}"
-
-          stage_html() {
-            local from="$1" to="$2"
-            if [ -f "${SRC}/${from}" ]; then
-              cp "${SRC}/${from}" "${STAGING}/${to}"
-              echo "Staged ${to}"
-            else
-              echo "::warning::Missing ${SRC}/${from} — expected ${to}"
-            fi
-          }
-
-          stage_html "result_01_scRNA_analysis_preprocessing.html" "std_01_scRNA_analysis_preprocessing.html"
-          stage_html "result_02_scRNA_analysis_extended.html" "std_02_scRNA_analysis_extended.html"
-          stage_html "result_03_scRNA_analysis_with_pearson_residuals.html" "std_03_scRNA_analysis_with_pearson_residuals.html"
-          stage_html "result_04_scRNA_analysis_dask_out_of_core.html" "adv_04_scRNA_analysis_dask_out_of_core.html"
-          stage_html "result_05_spatial_demo.html" "adv_05_spatial_demo.html"
-          stage_html "result_06_scRNA_analysis_1.0M_brain_example.html" "adv_06_scRNA_analysis_1.0M_brain_example.html"
-          stage_html "result_07_perturbation_analysis_invivo_brain_example.html" "adv_07_perturbation_analysis_invivo_brain_example.html"
-
-          echo "::group::Staged HTML for blueprint test image"
-          ls -la "${STAGING}" || true
-          echo "::endgroup::"
-
-          docker pull "${{ env.BLUEPRINT_TEST_IMAGE }}"
-          # Bind mounts resolve on the Docker daemon host; on ARC/remote-socket runners the path can be
-          # empty inside the container. Same pattern as RAPIDS: create a helper container and docker cp.
-          QA_NAME="sc-blueprint-qa-${{ github.run_id }}-${{ github.run_attempt }}"
-          docker rm -f "${QA_NAME}" 2>/dev/null || true
-          docker create \
-            --name "${QA_NAME}" \
-            --entrypoint /bin/sh \
-            "${{ env.BLUEPRINT_TEST_IMAGE }}" \
-            -c "sleep 86400"
-          docker start "${QA_NAME}"
-          docker exec "${QA_NAME}" mkdir -p /app/input/single_cell_analysis/v1.2.0
-          docker cp "${STAGING}/." "${QA_NAME}:/app/input/single_cell_analysis/v1.2.0/"
-          echo "::group::HTML inside QA container (sanity)"
-          docker exec "${QA_NAME}" ls -la /app/input/single_cell_analysis/v1.2.0 || true
-          echo "::endgroup::"
-          set +e
-          docker exec "${QA_NAME}" \
-            pytest -m "single_cell" --disable-warnings --html=/tmp/single_cell_blueprint_test.html
-          PY_RC=$?
-          set -e
-          docker cp "${QA_NAME}:/tmp/single_cell_blueprint_test.html" "${DEST}/single_cell_blueprint_test.html" 2>/dev/null || \
-            echo "::warning::Could not docker cp pytest HTML report (rc may be nonzero)."
-          docker rm -f "${QA_NAME}"
-          exit "${PY_RC}"
-
-      - name: Upload papermill output
-        uses: actions/upload-artifact@v4
+      - name: Upload artifacts
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: single-cell-papermill-output
+          name: single-cell notebooks and pytest
           path: |
-            ${{ env.DEST }}/notebook_output
-            ${{ env.DEST }}/single_cell_blueprint_test.html
-          if-no-files-found: warn
+            qa-input/*.html
+            report/single_cell.html
+            report/single_cell.xml
           retention-days: 14
 
-      - name: Cleanup container
+      - name: Cleanup Docker resources
         if: always()
-        run: docker rm -f "${{ env.CONTAINER_NAME }}" 2>/dev/null || true
+        run: |
+          docker ps --filter "ancestor=${TEST_IMAGE}" -q | xargs -r docker stop 2>/dev/null || true
+          docker ps -a --filter "ancestor=${TEST_IMAGE}" -q | xargs -r docker rm 2>/dev/null || true
+          docker rmi "${TEST_IMAGE}" 2>/dev/null || true
+          docker image prune -f
 
-      - name: Set result for email
+      - name: Set result output
         id: set_result
         if: always()
         run: |
-          case "${{ job.status }}" in
-            success) echo "RESULT=Success" >> "$GITHUB_OUTPUT" ;;
-            failure) echo "RESULT=Failure" >> "$GITHUB_OUTPUT" ;;
-            cancelled) echo "RESULT=Cancelled" >> "$GITHUB_OUTPUT" ;;
-            *) echo "RESULT=${{ job.status }}" >> "$GITHUB_OUTPUT" ;;
-          esac
+          echo "RESULT=$(if [ "${{ job.status }}" == 'success' ]; then echo 'PASS'; else echo 'FAIL'; fi)" >> "$GITHUB_OUTPUT"
 
       - name: Send mail
         uses: dawidd6/action-send-mail@6e71c855c9a091d80a519621b9fd3e8d252ca40c
@@ -653,16 +672,21 @@ jobs:
           server_port: 587
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "QA Test Workflow Result for ${{ github.repository }}"
+          subject: "QA Test (Single-Cell Analysis) for ${{ github.repository }}"
           to: Github-Action-Blueprint-QA@nvidia.com
           from: github-workflow-notification@gmail.com
           html_body: |
             <p>Hello,</p>
-
-            <p>The workflow for repository: <strong>${{ github.repository }}</strong> has completed.<br>
+            <p>Single-cell analysis QA for <strong>${{ github.repository }}</strong> completed.<br>
             <strong>Result:</strong> ${{ steps.set_result.outputs.RESULT }}</p>
-
-            <p>You can review the details on GitHub:<br>
-            <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}</a></p>
-
+            <ul>
+            <li>notebook-01: ${{ needs.notebook-01.result }}</li>
+            <li>notebook-02: ${{ needs.notebook-02.result }}</li>
+            <li>notebook-03: ${{ needs.notebook-03.result }}</li>
+            <li>notebook-04: ${{ needs.notebook-04.result }}</li>
+            <li>notebook-05: ${{ needs.notebook-05.result }}</li>
+            <li>notebook-06: ${{ needs.notebook-06.result }}</li>
+            <li>notebook-07: ${{ needs.notebook-07.result }}</li>
+            </ul>
+            <p><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View run</a></p>
             <p>Thanks!</p>
