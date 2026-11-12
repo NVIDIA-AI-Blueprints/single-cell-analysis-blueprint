@@ -73,6 +73,15 @@ jobs:
             -v "$(pwd)":/notebooks -w /notebooks \
             "${RAPIDS_IMAGE}" \
             bash -c '
+              if [ -f /opt/conda/etc/profile.d/conda.sh ]; then
+                source /opt/conda/etc/profile.d/conda.sh
+              elif [ -f /usr/local/etc/profile.d/conda.sh ]; then
+                source /usr/local/etc/profile.d/conda.sh
+              else
+                echo "ERROR: Could not find conda.sh to activate conda"
+                exit 1
+              fi
+              conda activate base || exit 1
               set -uo pipefail
               trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
               set -e
@@ -81,9 +90,10 @@ jobs:
               uv pip install --system -r requirements.txt
               mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
               pip install papermill nbconvert ipykernel
-              set +e
               cd /notebooks/notebooks
-              papermill 01_scRNA_analysis_preprocessing.ipynb /notebooks/results/std_01_scRNA_analysis_preprocessing.ipynb --log-output --kernel python3
+              python3 /notebooks/.github/scripts/ci_strip_kernel_shutdown.py 01_scRNA_analysis_preprocessing.ipynb /tmp/papermill_stripped/01_scRNA_analysis_preprocessing.ipynb
+              set +e
+              papermill /tmp/papermill_stripped/01_scRNA_analysis_preprocessing.ipynb /notebooks/results/std_01_scRNA_analysis_preprocessing.ipynb --cwd /notebooks/notebooks --log-output --kernel python3
               rc=$?
               jupyter nbconvert --to html /notebooks/results/std_01_scRNA_analysis_preprocessing.ipynb --output-dir /notebooks/results --output std_01_scRNA_analysis_preprocessing
               exit $rc
@@ -163,6 +173,15 @@ jobs:
             -v "$(pwd)":/notebooks -w /notebooks \
             "${RAPIDS_IMAGE}" \
             bash -c '
+              if [ -f /opt/conda/etc/profile.d/conda.sh ]; then
+                source /opt/conda/etc/profile.d/conda.sh
+              elif [ -f /usr/local/etc/profile.d/conda.sh ]; then
+                source /usr/local/etc/profile.d/conda.sh
+              else
+                echo "ERROR: Could not find conda.sh to activate conda"
+                exit 1
+              fi
+              conda activate base || exit 1
               set -uo pipefail
               trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
               set -e
@@ -171,9 +190,10 @@ jobs:
               uv pip install --system -r requirements.txt
               mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
               pip install papermill nbconvert ipykernel
-              set +e
               cd /notebooks/notebooks
-              papermill 02_scRNA_analysis_extended.ipynb /notebooks/results/std_02_scRNA_analysis_extended.ipynb --log-output --kernel python3
+              python3 /notebooks/.github/scripts/ci_strip_kernel_shutdown.py 02_scRNA_analysis_extended.ipynb /tmp/papermill_stripped/02_scRNA_analysis_extended.ipynb
+              set +e
+              papermill /tmp/papermill_stripped/02_scRNA_analysis_extended.ipynb /notebooks/results/std_02_scRNA_analysis_extended.ipynb --cwd /notebooks/notebooks --log-output --kernel python3
               rc=$?
               jupyter nbconvert --to html /notebooks/results/std_02_scRNA_analysis_extended.ipynb --output-dir /notebooks/results --output std_02_scRNA_analysis_extended
               exit $rc
@@ -239,6 +259,15 @@ jobs:
             -v "$(pwd)":/notebooks -w /notebooks \
             "${RAPIDS_IMAGE}" \
             bash -c '
+              if [ -f /opt/conda/etc/profile.d/conda.sh ]; then
+                source /opt/conda/etc/profile.d/conda.sh
+              elif [ -f /usr/local/etc/profile.d/conda.sh ]; then
+                source /usr/local/etc/profile.d/conda.sh
+              else
+                echo "ERROR: Could not find conda.sh to activate conda"
+                exit 1
+              fi
+              conda activate base || exit 1
               set -uo pipefail
               trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
               set -e
@@ -247,9 +276,10 @@ jobs:
               uv pip install --system -r requirements.txt
               mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
               pip install papermill nbconvert ipykernel
-              set +e
               cd /notebooks/notebooks
-              papermill 03_scRNA_analysis_with_pearson_residuals.ipynb /notebooks/results/std_03_scRNA_analysis_with_pearson_residuals.ipynb --log-output --kernel python3
+              python3 /notebooks/.github/scripts/ci_strip_kernel_shutdown.py 03_scRNA_analysis_with_pearson_residuals.ipynb /tmp/papermill_stripped/03_scRNA_analysis_with_pearson_residuals.ipynb
+              set +e
+              papermill /tmp/papermill_stripped/03_scRNA_analysis_with_pearson_residuals.ipynb /notebooks/results/std_03_scRNA_analysis_with_pearson_residuals.ipynb --cwd /notebooks/notebooks --log-output --kernel python3
               rc=$?
               jupyter nbconvert --to html /notebooks/results/std_03_scRNA_analysis_with_pearson_residuals.ipynb --output-dir /notebooks/results --output std_03_scRNA_analysis_with_pearson_residuals
               exit $rc
@@ -315,6 +345,15 @@ jobs:
             -v "$(pwd)":/notebooks -w /notebooks \
             "${RAPIDS_IMAGE}" \
             bash -c '
+              if [ -f /opt/conda/etc/profile.d/conda.sh ]; then
+                source /opt/conda/etc/profile.d/conda.sh
+              elif [ -f /usr/local/etc/profile.d/conda.sh ]; then
+                source /usr/local/etc/profile.d/conda.sh
+              else
+                echo "ERROR: Could not find conda.sh to activate conda"
+                exit 1
+              fi
+              conda activate base || exit 1
               set -uo pipefail
               trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
               set -e
@@ -323,9 +362,10 @@ jobs:
               uv pip install --system -r requirements.txt
               mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
               pip install papermill nbconvert ipykernel
-              set +e
               cd /notebooks/notebooks
-              papermill 04_scRNA_analysis_dask_out_of_core.ipynb /notebooks/results/adv_04_scRNA_analysis_dask_out_of_core.ipynb --log-output --kernel python3
+              python3 /notebooks/.github/scripts/ci_strip_kernel_shutdown.py 04_scRNA_analysis_dask_out_of_core.ipynb /tmp/papermill_stripped/04_scRNA_analysis_dask_out_of_core.ipynb
+              set +e
+              papermill /tmp/papermill_stripped/04_scRNA_analysis_dask_out_of_core.ipynb /notebooks/results/adv_04_scRNA_analysis_dask_out_of_core.ipynb --cwd /notebooks/notebooks --log-output --kernel python3
               rc=$?
               jupyter nbconvert --to html /notebooks/results/adv_04_scRNA_analysis_dask_out_of_core.ipynb --output-dir /notebooks/results --output adv_04_scRNA_analysis_dask_out_of_core
               exit $rc
@@ -391,6 +431,15 @@ jobs:
             -v "$(pwd)":/notebooks -w /notebooks \
             "${RAPIDS_IMAGE}" \
             bash -c '
+              if [ -f /opt/conda/etc/profile.d/conda.sh ]; then
+                source /opt/conda/etc/profile.d/conda.sh
+              elif [ -f /usr/local/etc/profile.d/conda.sh ]; then
+                source /usr/local/etc/profile.d/conda.sh
+              else
+                echo "ERROR: Could not find conda.sh to activate conda"
+                exit 1
+              fi
+              conda activate base || exit 1
               set -uo pipefail
               trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
               set -e
@@ -399,9 +448,10 @@ jobs:
               uv pip install --system -r requirements.txt
               mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
               pip install papermill nbconvert ipykernel
-              set +e
               cd /notebooks/notebooks
-              papermill 05_spatial_demo.ipynb /notebooks/results/adv_05_spatial_demo.ipynb --log-output --kernel python3
+              python3 /notebooks/.github/scripts/ci_strip_kernel_shutdown.py 05_spatial_demo.ipynb /tmp/papermill_stripped/05_spatial_demo.ipynb
+              set +e
+              papermill /tmp/papermill_stripped/05_spatial_demo.ipynb /notebooks/results/adv_05_spatial_demo.ipynb --cwd /notebooks/notebooks --log-output --kernel python3
               rc=$?
               jupyter nbconvert --to html /notebooks/results/adv_05_spatial_demo.ipynb --output-dir /notebooks/results --output adv_05_spatial_demo
               exit $rc
@@ -467,6 +517,15 @@ jobs:
             -v "$(pwd)":/notebooks -w /notebooks \
             "${RAPIDS_IMAGE}" \
             bash -c '
+              if [ -f /opt/conda/etc/profile.d/conda.sh ]; then
+                source /opt/conda/etc/profile.d/conda.sh
+              elif [ -f /usr/local/etc/profile.d/conda.sh ]; then
+                source /usr/local/etc/profile.d/conda.sh
+              else
+                echo "ERROR: Could not find conda.sh to activate conda"
+                exit 1
+              fi
+              conda activate base || exit 1
               set -uo pipefail
               trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
               set -e
@@ -475,9 +534,10 @@ jobs:
               uv pip install --system -r requirements.txt
               mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
               pip install papermill nbconvert ipykernel
-              set +e
               cd /notebooks/notebooks
-              papermill 06_scRNA_analysis_1.0M_brain_example.ipynb /notebooks/results/adv_06_scRNA_analysis_1.0M_brain_example.ipynb --log-output --kernel python3
+              python3 /notebooks/.github/scripts/ci_strip_kernel_shutdown.py 06_scRNA_analysis_1.0M_brain_example.ipynb /tmp/papermill_stripped/06_scRNA_analysis_1.0M_brain_example.ipynb
+              set +e
+              papermill /tmp/papermill_stripped/06_scRNA_analysis_1.0M_brain_example.ipynb /notebooks/results/adv_06_scRNA_analysis_1.0M_brain_example.ipynb --cwd /notebooks/notebooks --log-output --kernel python3
               rc=$?
               jupyter nbconvert --to html /notebooks/results/adv_06_scRNA_analysis_1.0M_brain_example.ipynb --output-dir /notebooks/results --output adv_06_scRNA_analysis_1.0M_brain_example
               exit $rc
@@ -543,6 +603,15 @@ jobs:
             -v "$(pwd)":/notebooks -w /notebooks \
             "${RAPIDS_IMAGE}" \
             bash -c '
+              if [ -f /opt/conda/etc/profile.d/conda.sh ]; then
+                source /opt/conda/etc/profile.d/conda.sh
+              elif [ -f /usr/local/etc/profile.d/conda.sh ]; then
+                source /usr/local/etc/profile.d/conda.sh
+              else
+                echo "ERROR: Could not find conda.sh to activate conda"
+                exit 1
+              fi
+              conda activate base || exit 1
               set -uo pipefail
               trap "chown -R \${HOST_UID}:\${HOST_GID} /notebooks" EXIT
               set -e
@@ -551,9 +620,10 @@ jobs:
               uv pip install --system -r requirements.txt
               mamba install -c conda-forge -c rapidsai cupy==14.0.1 numpy==2.2.6 -y
               pip install papermill nbconvert ipykernel
-              set +e
               cd /notebooks/notebooks
-              papermill 07_perturbation_analysis_invivo_brain_example.ipynb /notebooks/results/adv_07_perturbation_analysis_invivo_brain_example.ipynb --log-output --kernel python3
+              python3 /notebooks/.github/scripts/ci_strip_kernel_shutdown.py 07_perturbation_analysis_invivo_brain_example.ipynb /tmp/papermill_stripped/07_perturbation_analysis_invivo_brain_example.ipynb
+              set +e
+              papermill /tmp/papermill_stripped/07_perturbation_analysis_invivo_brain_example.ipynb /notebooks/results/adv_07_perturbation_analysis_invivo_brain_example.ipynb --cwd /notebooks/notebooks --log-output --kernel python3
               rc=$?
               jupyter nbconvert --to html /notebooks/results/adv_07_perturbation_analysis_invivo_brain_example.ipynb --output-dir /notebooks/results --output adv_07_perturbation_analysis_invivo_brain_example
               exit $rc
